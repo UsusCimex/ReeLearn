@@ -57,13 +57,16 @@ const App = () => {
 
       {!errorMessage && isVideoDisplayed && videoUrls.length > 0 && (
         <div className="video-container">
+          {/* Видео проигрыватель */}
           <VideoPlayer
-            videoUrl={videoUrls[currentVideoIndex]}
+            videoUrl={videoUrls[currentVideoIndex].url}
             handleNextVideo={handleNextVideo}
             currentVideoIndex={currentVideoIndex}
             totalVideos={videoUrls.length}
             videoRef={videoRef}
           />
+
+          {/* Кнопки для выбора видео */}
           <VideoSelectors
             videoUrls={videoUrls}
             currentVideoIndex={currentVideoIndex}

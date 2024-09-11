@@ -3,9 +3,11 @@ import os
 import logging
 from controllers.video_controller import find_videos_and_timecodes, process_video
 from video_processing.video_cutting import cut_extended_video
+from flask_cors import CORS
 
 # Инициализация приложения
 app = Flask(__name__)
+CORS(app)
 
 # Конфигурация папок
 VIDEO_FOLDER = 'videos/'

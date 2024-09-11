@@ -1,3 +1,4 @@
+// components/VideoSelectors.js
 import React from 'react';
 
 const VideoSelectors = ({ videoUrls, currentVideoIndex, handleVideoSelect, handleNextVideo, handlePrevVideo }) => {
@@ -15,7 +16,7 @@ const VideoSelectors = ({ videoUrls, currentVideoIndex, handleVideoSelect, handl
       {/* Нумерация видео */}
       {videoUrls.slice(startIndex, endIndex).map((url, index) => (
         <button
-          key={index + startIndex} // Смещаем индекс для корректного отображения
+          key={index + startIndex}
           onClick={() => handleVideoSelect(index + startIndex)}
           className={currentVideoIndex === index + startIndex ? 'active' : ''}
         >

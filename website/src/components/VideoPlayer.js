@@ -1,9 +1,8 @@
+// components/VideoPlayer.js
 import React from 'react';
-import { logInfo } from '../utils/logger'; 
 
 const VideoPlayer = ({ videoUrl, handleNextVideo, currentVideoIndex, totalVideos, videoRef }) => {
   const onVideoEnd = () => {
-    logInfo(`Video ${currentVideoIndex + 1} ended`);
     if (currentVideoIndex < totalVideos - 1) {
       handleNextVideo();
     }

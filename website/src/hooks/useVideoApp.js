@@ -12,8 +12,8 @@ export const useVideoApp = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const spanRef = useRef(null);
-  const inputRef = useRef(null); // Реф для поиска
-  const videoRef = useRef(null); // Реф для видео
+  const inputRef = useRef(null); 
+  const videoRef = useRef(null);
 
   useEffect(() => {
     if (spanRef.current) {
@@ -24,6 +24,7 @@ export const useVideoApp = () => {
   const handleSearch = useCallback(async () => {
     setErrorMessage('');
     setIsVideoDisplayed(false);
+
     if (!searchQuery) return;
 
     setIsLoading(true);
@@ -31,12 +32,16 @@ export const useVideoApp = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/query?query=${searchQuery}`
+        `http://localhost:5000/search?query=${searchQuery}`
       );
       const data = await response.json();
-
-      if (data.videoPaths && data.videoPaths.length > 0) {
-        setVideoUrls(data.videoPaths.map(path => `http://localhost:5000/videos/${path}`));
+      
+      if (data.results && data.results.length > 0) {
+        setVideoUrls(data.results.map(result => ({
+          url: `http://localhost:5000/download?url=${result.url}`,
+          name: result.name,
+          timecode: result.timecode,
+        })));
         setCurrentVideoIndex(0);
         setIsSearchSubmitted(true);
 
@@ -47,7 +52,7 @@ export const useVideoApp = () => {
           setIsVideoDisplayed(true);
         }, 500);
 
-        logInfo(`Videos found: ${data.videoPaths.length}`);
+        logInfo(`Videos found: ${data.results.length}`);
       } else {
         throw new Error('Видео не найдено');
       }
