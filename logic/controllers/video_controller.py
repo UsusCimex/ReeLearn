@@ -64,7 +64,7 @@ def find_scene_for_timecode(timecode, scene_boundaries):
     return None, None
 
 # Поиск видео и таймкодов по запросу и обрезка видео
-def find_videos_and_timecodes(query, top_n=2):
+def find_videos_and_timecodes(query, top_n=2, min_score=70):
     query_hash = generate_query_hash(query)  # Генерируем хеш на основе запроса
     result_dir = os.path.join(RESULT_FOLDER, query_hash)
 
@@ -80,7 +80,7 @@ def find_videos_and_timecodes(query, top_n=2):
         scenary_path = os.path.join(SCENARIES_FOLDER, scenary_file)
 
         # Выполнение поиска по каждому сценарию
-        matches = find_top_fragments_in_file(query, scenary_path, top_n)
+        matches = find_top_fragments_in_file(query, scenary_path, threshold=min_score, top_n=top_n)
         
         if matches:
             video_base_name = scenary_file.replace('.txt', '')

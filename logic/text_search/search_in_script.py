@@ -2,7 +2,7 @@ from fuzzywuzzy import fuzz
 import logging
 
 # Поиск наиболее релевантных фрагментов в сценарии
-def find_top_fragments_in_file(query, file_path, threshold=80, top_n=2):
+def find_top_fragments_in_file(query, file_path, threshold, top_n):
     try:
         with open(file_path, 'r') as file:
             lines = file.readlines()
