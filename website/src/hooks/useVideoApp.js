@@ -58,7 +58,7 @@ export const useVideoApp = () => {
       }
     } catch (error) {
       logError(`Error fetching videos: ${error.message}`);
-      setErrorMessage('Ошибка при получении видео: Видео не найдено');
+      setErrorMessage(`Ошибка при получении видео: ${error.message}`);
       setIsSearchSubmitted(false);
       setIsVideoDisplayed(false);
     } finally {
