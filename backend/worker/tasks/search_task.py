@@ -1,4 +1,4 @@
-from celery_app import celery_app
+from worker.celery_app import celery_app
 from services.search_service import (
     search_in_elasticsearch,
     get_fragments_from_db,

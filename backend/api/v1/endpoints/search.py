@@ -1,7 +1,8 @@
-from fastapi import APIRouter
+from typing import List
+from fastapi import APIRouter, Query
 from celery.result import AsyncResult
-from celery_app import celery_app
-from tasks import search_task
+from worker.celery_app import celery_app
+from worker.tasks import search_task
 from schemas.search import SearchResponse
 
 router = APIRouter()

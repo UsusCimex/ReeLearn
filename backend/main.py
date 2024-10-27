@@ -4,8 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 from core.config import settings
 from api.v1.router import api_router
 from utils.elasticsearch_utils import create_reelearn_index
-from database import engine
-from models import Base
+from db.base import engine, Base
 
 app = FastAPI(title=settings.PROGRAM_NAME, version=settings.PROGRAM_VERSION)
 
@@ -25,4 +24,5 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @app.on_event("startup")
 async def startup_event():
     create_reelearn_index()
-    Base.metadata.create_all(bind=engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

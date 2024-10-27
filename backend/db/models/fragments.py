@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, ARRAY
 from sqlalchemy.orm import relationship
-from database import Base
+from db.base import Base
 
 class Fragment(Base):
     __tablename__ = 'fragments'

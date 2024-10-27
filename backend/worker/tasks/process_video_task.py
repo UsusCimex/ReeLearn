@@ -5,8 +5,9 @@ from services.search_service import (
     assemble_search_results
 )
 from sqlalchemy.orm import sessionmaker
-from database import engine
-from models import Video, Fragment
+from db.base import engine
+from db.models.videos import Video
+from db.models.fragments import Fragment
 from services.processing_service import extract_subtitles
 from utils.s3_utils import download_file_from_s3, upload_file_to_s3
 from utils.ffmpeg_utils import slice_video

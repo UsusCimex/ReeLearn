@@ -1,9 +1,11 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from db.models.fragments import Fragment
 from utils.elasticsearch_utils import es
 from core.config import settings
-from sqlalchemy.orm import Session
-from models import Fragment
-from database import SessionLocal
-from utils.s3_utils import generate_presigned_url
+from typing import List
+from db.dependencies import get_db
+from fastapi import Depends
 
 def search_in_elasticsearch(query, exact=False, tags=None):
     index_name = settings.ELASTICSEARCH_INDEX_NAME

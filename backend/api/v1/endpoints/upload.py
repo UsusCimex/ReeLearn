@@ -6,6 +6,7 @@ from schemas.upload import UploadResponse
 from worker.tasks import process_video_task
 from utils.s3_utils import upload_file_to_s3
 from core.config import settings
+from typing import Optional
 import uuid
 import os
 

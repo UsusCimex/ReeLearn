@@ -24,48 +24,16 @@ services:
     image: worker_image
     volumes:
       - ../backend:/app
-      - /tmp/videos:/tmp/videos  # Монтирование той же директории для временных файлов
+      - /tmp/videos:/tmp/videos
     depends_on:
       - backend
       - db
       - redis
       - minio
       - elasticsearch
-    environment:
-      PROGRAM_NAME: ${PROGRAM_NAME}
-      PROGRAM_VERSION: ${PROGRAM_VERSION}
-      TIMEZONE: ${TIMEZONE}
-      API_V1_STR: ${API_V1_STR}
-      HOST: ${HOST}
-      PORT: ${PORT}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_SERVER: ${POSTGRES_SERVER}
-      POSTGRES_DB: ${POSTGRES_DB}
-      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
-      S3_SECRET_KEY: ${S3_SECRET_KEY}
-      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
-      ELASTICSEARCH_HOST: ${ELASTICSEARCH_HOST}
-      ELASTICSEARCH_PORT: ${ELASTICSEARCH_PORT}
-      ELASTICSEARCH_INDEX_NAME: ${ELASTICSEARCH_INDEX_NAME}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
-      TEMP_UPLOAD_DIR: ${TEMP_UPLOAD_DIR}
-    command: celery -A tasks.celery_app worker --loglevel=info
-
-  flower:
-    image: mher/flower:latest
-    command: flower --broker=${CELERY_BROKER_URL} --port=5555
-    ports:
-      - "5555:5555"
-    depends_on:
-      - redis
-      - worker
-    environment:
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+    env_file:
+      - .env
+    command: celery -A worker.celery_app worker --loglevel=info
 
   db:
     image: postgres:13
