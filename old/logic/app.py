@@ -4,6 +4,7 @@ import logging
 from controllers.video_controller import find_videos_and_timecodes, process_video
 from video_processing.video_cutting import cut_extended_video
 from flask_cors import CORS
+import config.conf
 
 # Инициализация приложения
 app = Flask(__name__)

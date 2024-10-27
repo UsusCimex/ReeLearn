@@ -1,8 +1,12 @@
 import os
 import logging
 import whisper
-from moviepy.editor import VideoFileClip
+import tempfile
+import ffmpeg
+from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 import warnings
+import logging
+from pathlib import Path
 
 # Подавление предупреждений
 warnings.filterwarnings("ignore", message="FP16 is not supported on CPU")
@@ -22,7 +26,7 @@ def extract_audio_from_video(video_path, audio_output_path="audio.wav"):
 # Транскрибирование аудио с использованием Whisper
 def transcribe_audio_with_timestamps(audio_path):
     try:
-        model = whisper.load_model("base")
+        model = whisper.load_model("turbo")
         result = model.transcribe(audio_path)
         logging.info(f"Аудио транскрибировано: {audio_path}")
         return result
@@ -57,3 +61,42 @@ def video_to_text_with_timestamps(video_path, output_folder="scenaries"):
     except Exception as e:
         logging.error(f"Ошибка транскрибирования видео {video_path}: {str(e)}")
         raise
+
+# Транскрибирование видео с Whisper и возврат результата без создания файла
+def transcribe_video_with_whisper(video_path):
+    try:
+        audio_path = extract_audio_from_video(video_path)
+        model = whisper.load_model("turbo")
+        result = model.transcribe(audio_path)
+        
+        # Удаление временного аудиофайла
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+        
+        logging.info(f"Аудио транскрибировано: {video_path}")
+        return result
+    except Exception as e:
+        logging.error(f"Ошибка транскрипции видео {video_path}: {str(e)}")
+        raise
+
+def add_subtitles_with_moviepy(video_path, transcription_result):
+    video = VideoFileClip(video_path)
+    subtitles = []
+
+    for segment in transcription_result['segments']:
+        start_time = segment['start']
+        end_time = segment['end']
+        duration = end_time - start_time
+        text = segment['text'].strip().replace('\n', ' ')
+
+        txt_clip = (TextClip(text, fontsize=24, color='white', stroke_color='black', stroke_width=2, method='caption', size=video.size)
+                    .set_position(('center', 'bottom'))
+                    .set_duration(duration)
+                    .set_start(start_time))
+
+        subtitles.append(txt_clip)
+
+    final_video = CompositeVideoClip([video, *subtitles])
+    output_video_path = video_path.replace('.mp4', '_with_subtitles.mp4')
+    final_video.write_videofile(output_video_path, codec='libx264', audio_codec='aac')
+    return output_video_path

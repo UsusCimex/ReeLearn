@@ -1,0 +1,22 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Установка системных зависимостей
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Установка переменной окружения для увеличения таймаута в секундах
+ENV PIP_DEFAULT_TIMEOUT=1200
+
+# Копирование и установка зависимостей Python
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --retries 3 -r requirements.txt
+
+# Копирование исходного кода приложения
+COPY backend/ .
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

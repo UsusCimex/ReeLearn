@@ -3,6 +3,8 @@ import hashlib
 import logging
 from flask import jsonify
 from video_processing.audio_transcription import video_to_text_with_timestamps
+from video_processing.audio_transcription import transcribe_video_with_whisper
+from video_processing.audio_transcription import add_subtitles_with_moviepy
 from video_processing.scene_detection import find_scenes
 from video_processing.video_cutting import cut_extended_video
 from text_search import find_top_fragments_in_file
@@ -63,8 +65,8 @@ def find_scene_for_timecode(timecode, scene_boundaries):
             return scene_start, scene_end
     return None, None
 
-# Поиск видео и таймкодов по запросу и обрезка видео
-def find_videos_and_timecodes(query, top_n=2, min_score=70):
+# Поиск видео и таймкодов по запросу и обрезка видео с возможностью добавления субтитров
+def find_videos_and_timecodes(query, top_n=2, min_score=70, add_subtitles=True):
     query_hash = generate_query_hash(query)  # Генерируем хеш на основе запроса
     result_dir = os.path.join(RESULT_FOLDER, query_hash)
 
@@ -116,6 +118,14 @@ def find_videos_and_timecodes(query, top_n=2, min_score=70):
                 if os.path.exists(video_path):
                     # Обрезаем видео от левой границы первой сцены до правой границы второй сцены
                     cut_video_path, timecode_file_path = cut_extended_video(video_path, query_hash, left_scene_start, right_scene_end)
+
+                    # Если требуется добавить субтитры
+                    if add_subtitles:
+                        transcription_result = transcribe_video_with_whisper(cut_video_path)
+                        add_subtitles_with_moviepy(cut_video_path, transcription_result)
+
+                        cut_video_path.replace('.mp4', '_with_subtitles.mp4')
+                    
                     results.append({
                         'video_path': cut_video_path,
                         'name': os.path.basename(cut_video_path),

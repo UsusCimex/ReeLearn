@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./logic
+    container_name: backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - minio
+      - postgres
+      - elasticsearch
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET_NAME=videos
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ree_learn_db
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+    volumes:
+      - ./logic:/app
+    networks:
+      - backend
+
+  frontend:
+    build:
+      context: ./website
+    container_name: frontend
+    ports:
+      - "3000:80"
+    networks:
+      - backend
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - backend
+
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres_pass
+      - POSTGRES_DB=ree_learn_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.10
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    networks:
+      - backend
+
+volumes:
+  minio_data:
+  postgres_data:
+
+networks:
+  backend:

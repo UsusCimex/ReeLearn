@@ -1,0 +1,12 @@
+whisper
+moviepy
+scenedetect
+fuzzywuzzy
+python-levenshtein
+minio 
+psycopg2-binary
+sqlalchemy 
+elasticsearch
+fastapi 
+uvicorn 
+ffmpeg-python
