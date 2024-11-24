@@ -2,13 +2,15 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 class SearchResult(BaseModel):
-    s3_url: str
+    presigned_url: str
     video_name: str
-    video_description: Optional[str]
+    video_description: str
     timecode_start: int
     timecode_end: int
     text: str
     tags: List[str]
 
 class SearchResponse(BaseModel):
-    results: List[SearchResult]
+    status: str
+    results: Optional[List[SearchResult]] = None
+    reason: Optional[str] = None

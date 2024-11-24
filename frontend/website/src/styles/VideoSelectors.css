@@ -1,0 +1,24 @@
+/* VideoSelectors.css */
+.video-selectors {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+  }
+  
+  .video-selectors button {
+    margin: 0 10px;
+    padding: 10px 20px;
+    font-size: 1.2rem;
+    border: none;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .video-selectors button.active {
+    background-color: #007bff;
+    color: white;
+  }
+  

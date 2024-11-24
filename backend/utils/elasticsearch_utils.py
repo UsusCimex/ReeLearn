@@ -1,18 +1,19 @@
-from elasticsearch import Elasticsearch, helpers, exceptions
+from elasticsearch import AsyncElasticsearch, helpers, exceptions
 from core.config import settings
 
 # Название индекса
 index_name = settings.ELASTICSEARCH_INDEX_NAME
 
 # Создаем клиент Elasticsearch
-es = Elasticsearch([{
+es = AsyncElasticsearch([{
     'host': settings.ELASTICSEARCH_HOST,
     'port': settings.ELASTICSEARCH_PORT,
-    'scheme': 'http'  # или 'https', если используется SSL
+    'scheme': 'http'
 }])
 
-if not es.ping():
-    raise ValueError("Elasticsearch недоступен")
+async def check_elasticsearch():
+    if not await es.ping():
+        raise ValueError("Elasticsearch недоступен")
 
 def convert_to_bulk_format(fragment):
     return {
@@ -25,13 +26,13 @@ def convert_to_bulk_format(fragment):
         }
     }
 
-def create_reelearn_index(delete_if_exist=True):
+async def create_reelearn_index(delete_if_exist=True):
     # Удаляем индекс, если он уже существует
-    if es.indices.exists(index=index_name):
+    if await es.indices.exists(index=index_name):
         if not delete_if_exist:
             print(f"Индекс {index_name} уже существует.")
             return
-        es.indices.delete(index=index_name)
+        await es.indices.delete(index=index_name)
     
     mapping = {
         "settings": {
@@ -73,19 +74,19 @@ def create_reelearn_index(delete_if_exist=True):
     }
 
     try:
-        es.indices.create(index=index_name, body=mapping)
+        await es.indices.create(index=index_name, body=mapping)
         print(f"Индекс '{index_name}' создан.")
     except exceptions.ElasticsearchException as e:
         print(f"Ошибка при создании индекса: {e}")
 
-def add_new_fragment(fragment):
+async def add_new_fragment(fragment):
     es_document = convert_to_bulk_format(fragment)
-    response = es.index(index=index_name, id=fragment.id, body=es_document['_source'])
+    response = await es.index(index=index_name, id=fragment.id, body=es_document['_source'])
     return response
 
-def delete_fragment_by_id(fragment_id):
+async def delete_fragment_by_id(fragment_id):
     try:
-        response = es.delete(index=index_name, id=fragment_id)
+        response = await es.delete(index=index_name, id=fragment_id)
         return response
     except Exception as e:
         return {"error": str(e)}

@@ -10,10 +10,14 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
-      - minio
-      - elasticsearch
+      db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
     env_file:
       - .env
 
@@ -26,25 +30,47 @@ services:
       - ../backend:/app
       - /tmp/videos:/tmp/videos
     depends_on:
-      - backend
-      - db
-      - redis
-      - minio
-      - elasticsearch
+      db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
     env_file:
       - .env
-    command: celery -A worker.celery_app worker --loglevel=info
+    environment:
+      PYTHONPATH: "/app"
+    command: celery -A worker.celery_app worker --loglevel=info -P solo
+
+  flower:
+    image: mher/flower
+    container_name: flower
+    command: celery flower
+    environment: 
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+    ports:
+      - "5555:5555"
+    depends_on:
+      worker:
+        condition: service_started
 
   db:
-    image: postgres:13
+    image: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h db -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:6
@@ -77,6 +103,12 @@ services:
       - "9200:9200"
     volumes:
       - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cat/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 volumes:
   postgres_data:

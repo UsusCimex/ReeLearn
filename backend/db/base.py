@@ -5,6 +5,7 @@ from core.config import settings
 
 # Создание асинхронного движка
 engine = create_async_engine(settings.DATABASE_URL, echo=True)
+AsyncSessionLocal = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 # Создание асинхронной фабрики сессий
 async_session = sessionmaker(

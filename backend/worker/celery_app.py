@@ -14,3 +14,5 @@ celery_app.conf.update(
     timezone=settings.TIMEZONE,
     enable_utc=True,
 )
+
+celery_app.autodiscover_tasks(['worker.tasks'])

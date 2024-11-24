@@ -2,7 +2,7 @@ from whisper import load_model
 import subprocess
 from typing import List, Dict
 
-def extract_subtitles(video_path: str) -> List[Dict]:
+async def extract_subtitles(video_path: str) -> List[Dict]:
     """
     Извлекает субтитры и таймкоды из видео с помощью Whisper.
     
@@ -35,8 +35,8 @@ def extract_subtitles(video_path: str) -> List[Dict]:
     fragments = []
     for segment in result['segments']:
         fragment = {
-            'timecode_start': int(segment['start']),
-            'timecode_end': int(segment['end']),
+            'timecode_start': float(segment['start']),
+            'timecode_end': float(segment['end']),
             'text': segment['text'].strip()
         }
         fragments.append(fragment)
