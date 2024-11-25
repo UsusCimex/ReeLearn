@@ -1,119 +1,174 @@
 from worker.celery_app import celery_app
 from services.search_service import (
     search_in_elasticsearch,
-    get_fragments_from_db,
     assemble_search_results
 )
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base, scoped_session
+from sqlalchemy import select
 from db.models.videos import Video
 from db.models.fragments import Fragment
 from services.processing_service import extract_subtitles
 from utils.s3_utils import download_file_from_s3, upload_file_to_s3
 from utils.ffmpeg_utils import slice_video
+from utils.elasticsearch_utils import get_elasticsearch
 from core.config import settings
 import os
 from celery.utils.log import get_task_logger
 import asyncio
+from typing import List
+from utils.video_processing import SmartVideoFragmenter
 
 logger = get_task_logger(__name__)
 
 # Создание фабрики сессий для Celery задач
-engine = create_engine(settings.SYNC_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_async_engine(settings.DATABASE_URL)
+AsyncSessionLocal = sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
+
+async def index_fragment(fragment_id: int, text: str, tags: List[str]):
+    """Индексирует фрагмент в Elasticsearch."""
+    try:
+        async with get_elasticsearch() as es:
+            await es.index(
+                index=settings.ELASTICSEARCH_INDEX_NAME,
+                id=str(fragment_id),
+                body={
+                    'fragment_id': fragment_id,
+                    'text': text,
+                    'tags': tags
+                }
+            )
+            logger.info(f"Фрагмент {fragment_id} успешно индексирован в Elasticsearch")
+    except Exception as e:
+        logger.error(f"Ошибка при индексации фрагмента {fragment_id}: {e}")
+        raise
 
 @celery_app.task(bind=True)
 def process_video_task(self, video_id: int):
-    session = SessionLocal()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
+    """
+    Celery task для обработки видео. Оборачивает асинхронную логику в синхронный интерфейс.
+    """
     try:
-        # Получение видео из базы данных
-        video = session.query(Video).filter(Video.id == video_id).first()
-        if not video:
-            logger.error(f"Видео с ID {video_id} не найдено.")
-            self.update_state(state='FAILURE', meta={'error': 'Видео не найдено'})
-            return {'status': 'failed', 'error': 'Видео не найдено'}
+        # Создаем новый event loop для асинхронных операций
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         
-        # Определение путей для временных файлов
-        temp_video_filename = f"processing_{video.id}.mp4"
-        temp_video_path = os.path.join(settings.TEMP_UPLOAD_DIR, temp_video_filename)
-        
-        # Скачивание видео из S3 в временную директорию
-        logger.info(f"Скачивание видео ID {video.id} из S3.")
-        download_success = loop.run_until_complete(download_file_from_s3(video.s3_url, temp_video_path))
-        if not download_success:
-            logger.error(f"Не удалось скачать видео ID {video.id} из S3.")
-            self.update_state(state='FAILURE', meta={'error': 'Не удалось скачать видео из S3'})
-            return {'status': 'failed', 'error': 'Не удалось скачать видео из S3'}
-        
-        # Извлечение субтитров и таймкодов с помощью Whisper
-        logger.info(f"Извлечение субтитров из видео ID {video.id}.")
-        fragments_info = loop.run_until_complete(extract_subtitles(temp_video_path))
-        
-        # Обработка каждого фрагмента
-        for fragment_info in fragments_info:
-            timecode_start = fragment_info['timecode_start']
-            timecode_end = fragment_info['timecode_end']
-            text = fragment_info['text']
-            tags = []  # Теги будут добавлены позже
-            
-            # Определение имен и путей для фрагментов
-            fragment_filename = f"fragment_{video.id}_{timecode_start}_{timecode_end}.mp4"
-            fragment_path = os.path.join(settings.TEMP_UPLOAD_DIR, fragment_filename)
-            
-            # Нарезка видео на фрагмент
-            logger.info(f"Нарезка видео ID {video.id}: {timecode_start}-{timecode_end} секунд.")
-            success = slice_video(temp_video_path, fragment_path, timecode_start, timecode_end)
-            if not success:
-                logger.warning(f"Не удалось нарезать видео ID {video.id} на фрагмент {fragment_filename}. Пропуск.")
-                continue  # Пропуск неудачных фрагментов
-            
-            # Загрузка фрагмента в S3
-            try:
-                logger.info(f"Загрузка фрагмента {fragment_filename} в S3.")
-                fragment_s3_url = loop.run_until_complete(upload_file_to_s3(file_path=fragment_path, key=fragment_filename))
-            except Exception as e:
-                logger.error(f"Не удалось загрузить фрагмент {fragment_filename} в S3: {e}. Пропуск.")
-                continue  # Пропуск фрагментов, которые не удалось загрузить
-            
-            # Сохранение информации о фрагменте в базе данных
-            fragment = Fragment(
-                video_id=video.id,
-                timecode_start=timecode_start,
-                timecode_end=timecode_end,
-                s3_url=fragment_s3_url,
-                text=text,
-                tags=tags
-            )
-            session.add(fragment)
-            session.commit()
-            session.refresh(fragment)
-            logger.info(f"Сохранение фрагмента ID {fragment.id} в базе данных.")
-            
-            # Удаление временного файла фрагмента
-            os.remove(fragment_path)
-            logger.info(f"Удаление временного файла фрагмента {fragment_path}.")
-        
-        # Удаление временного видеофайла
-        os.remove(temp_video_path)
-        logger.info(f"Удаление временного видеофайла {temp_video_path}.")
-        
-        logger.info(f"Обработка видео ID {video.id} завершена успешно.")
-        return {'status': 'completed', 'task_id': self.request.id}
-    
-    except Exception as e:
-        session.rollback()
-        error_info = {
-            'exc_type': type(e).__name__,
-            'exc_message': str(e),
-            'exc_module': e.__class__.__module__
-        }
-        logger.error(f"Ошибка при обработке видео ID {video_id}: {e}")
-        self.update_state(state='FAILURE', meta=error_info)
-        return {'status': 'failed', 'error': error_info, 'task_id': self.request.id}
-    finally:
-        session.close()
-        if 'loop' in locals():
+        try:
+            # Запускаем асинхронную логику в синхронном контексте
+            return loop.run_until_complete(_async_process_video(self, video_id))
+        finally:
+            # Всегда закрываем loop
             loop.close()
+            
+    except Exception as e:
+        logger.error(f"Ошибка при обработке видео {video_id}: {e}", exc_info=True)
+        self.update_state(
+            state='FAILURE',
+            meta={'exc_type': type(e).__name__, 'exc_message': str(e)}
+        )
+        raise e
+
+async def _async_process_video(self, video_id: int):
+    """
+    Асинхронная функция, содержащая основную логику обработки видео.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            # Получение видео из базы данных
+            result = await session.execute(
+                select(Video).where(Video.id == video_id)
+            )
+            video = result.scalar_one_or_none()
+            if not video:
+                raise ValueError(f"Видео с ID {video_id} не найдено")
+
+            # Обновляем статус
+            video.status = 'processing'
+            await session.commit()
+
+            # Создаем временную директорию для загрузки
+            temp_dir = os.path.join(settings.TEMP_UPLOAD_DIR, str(video_id))
+            os.makedirs(temp_dir, exist_ok=True)
+
+            try:
+                # Загружаем видео из S3
+                video_path = os.path.join(temp_dir, f"{video_id}.mp4")
+                # Use the full s3_url instead of extracting the key
+                if not await download_file_from_s3(video.s3_url, video_path):
+                    raise Exception("Failed to download video from S3")
+                logger.info(f"Видео {video_id} успешно загружено из S3")
+
+                # Извлекаем субтитры
+                subtitles = await extract_subtitles(video_path)
+                logger.info(f"Субтитры для видео {video_id} успешно извлечены")
+
+                # Создаем фрагментатор
+                fragmenter = SmartVideoFragmenter(
+                    min_fragment_duration=10.0,
+                    max_fragment_duration=30.0,
+                    optimal_duration=20.0,
+                    default_language='en'  # Use 'en' as default, language will be auto-detected per segment
+                )
+                
+                # Обрабатываем субтитры и получаем оптимизированные фрагменты
+                video_fragments = fragmenter.process_subtitles(subtitles)
+                logger.info(f"Создано {len(video_fragments)} оптимизированных фрагментов")
+
+                # Обрабатываем каждый фрагмент
+                for i, fragment in enumerate(video_fragments):
+                    # Создаем видеофрагмент
+                    fragment_path = os.path.join(temp_dir, f"fragment_{i}.mp4")
+                    await slice_video(video_path, fragment_path, fragment.start_time, fragment.end_time)
+
+                    # Загружаем фрагмент в S3
+                    s3_key = f"fragments/{video_id}/{i}.mp4"
+                    s3_url = await upload_file_to_s3(fragment_path, s3_key)
+
+                    # Создаем фрагмент в базе данных
+                    db_fragment = Fragment(
+                        video_id=video_id,
+                        timecode_start=fragment.start_time,
+                        timecode_end=fragment.end_time,
+                        text=fragment.text,
+                        s3_url=s3_url,
+                        tags=[]  # TODO: Implement tag extraction
+                    )
+                    session.add(db_fragment)
+                    await session.commit()
+                    logger.info(f"Создан фрагмент {db_fragment.id} для видео {video_id}")
+
+                    # Индексируем фрагмент в Elasticsearch
+                    await index_fragment(db_fragment.id, db_fragment.text, db_fragment.tags)
+
+                    # Обновляем прогресс
+                    progress = (i + 1) / len(video_fragments) * 100
+                    self.update_state(
+                        state='PROGRESS',
+                        meta={'current': i + 1, 'total': len(video_fragments), 'progress': progress}
+                    )
+
+                # Обновляем статус видео
+                video.status = 'processed'
+                await session.commit()
+
+                return {
+                    'status': 'success',
+                    'video_id': video_id,
+                    'fragments_count': len(video_fragments)
+                }
+
+            finally:
+                # Очищаем временные файлы
+                if os.path.exists(temp_dir):
+                    for file in os.listdir(temp_dir):
+                        os.remove(os.path.join(temp_dir, file))
+                    os.rmdir(temp_dir)
+
+        except Exception as e:
+            # В случае ошибки помечаем видео как failed
+            if video:
+                video.status = 'failed'
+                await session.commit()
+            raise e

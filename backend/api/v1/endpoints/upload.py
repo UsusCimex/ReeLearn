@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.post("/upload", response_model=UploadResponse)
+@router.post("", response_model=UploadResponse)
 async def upload_video(
     video_file: UploadFile = File(...),
     name: str = Form(...),

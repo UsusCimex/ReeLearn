@@ -18,3 +18,5 @@ torch
 torchvision
 torchaudio
 openai-whisper
+nltk==3.8.1
+langdetect==1.0.9

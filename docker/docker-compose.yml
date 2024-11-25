@@ -112,5 +112,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
   minio_data:
+    driver: local
   esdata:
+    driver: local

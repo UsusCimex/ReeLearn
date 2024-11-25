@@ -9,7 +9,7 @@ from schemas.video import VideoFragmentsResponse, FragmentInfo
 
 router = APIRouter()
 
-@router.get("/videos/{video_id}/fragments", response_model=VideoFragmentsResponse)
+@router.get("/{video_id}/fragments", response_model=VideoFragmentsResponse)
 async def get_video_fragments(
     video_id: int,
     session: AsyncSession = Depends(get_db)

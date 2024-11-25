@@ -1,8 +1,9 @@
 from fastapi import APIRouter
-
-from api.v1.endpoints import upload, search, video
+from .endpoints import upload, search, video, tasks
 
 api_router = APIRouter()
-api_router.include_router(upload.router, tags=["upload"])
-api_router.include_router(search.router, tags=["search"])
-api_router.include_router(video.router, tags=["video"])
+
+api_router.include_router(upload.router, prefix="/upload", tags=["upload"])
+api_router.include_router(search.router, prefix="/search", tags=["search"])
+api_router.include_router(video.router, prefix="/videos", tags=["videos"])
+api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])

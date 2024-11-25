@@ -1,6 +1,7 @@
+import asyncio
 import subprocess
 
-def slice_video(source_path: str, fragment_path: str, start: int, end: int) -> bool:
+async def slice_video(source_path: str, fragment_path: str, start: int, end: int) -> bool:
     """
     Нарезает видео на фрагмент с помощью FFmpeg.
     
@@ -20,7 +21,12 @@ def slice_video(source_path: str, fragment_path: str, start: int, end: int) -> b
         fragment_path
     ]
     try:
-        subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return True
-    except subprocess.CalledProcessError:
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        await process.communicate()
+        return process.returncode == 0
+    except Exception:
         return False

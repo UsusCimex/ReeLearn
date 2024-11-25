@@ -16,6 +16,9 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --retries 3 -r requirements.txt
 
+# Download NLTK data
+RUN python -c "import nltk; nltk.download('punkt')"
+
 # Копирование исходного кода приложения
 COPY backend/ .
 

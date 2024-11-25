@@ -31,7 +31,7 @@ class Settings(BaseSettings):
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     # S3 (MinIO) settings
-    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://minio:9000")  # Внутренний URL для сервисов
+    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")  # Внутренний URL для сервисов
     S3_PUBLIC_URL: str = os.getenv("S3_PUBLIC_URL", "http://localhost:9000")  # Публичный URL для клиентов
     S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
     S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minioadmin")
