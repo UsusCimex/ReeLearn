@@ -1,6 +1,11 @@
 from whisper import load_model
 import subprocess
+import asyncio
+import os
+import logging
 from typing import List, Dict
+
+logger = logging.getLogger(__name__)
 
 def optimize_fragments(fragments: List[Dict], min_duration: float = 3.0, max_gap: float = 1.0) -> List[Dict]:
     """
@@ -53,39 +58,68 @@ async def extract_subtitles(video_path: str) -> List[Dict]:
     :param video_path: Путь к видеофайлу.
     :return: Список словарей с 'start', 'end', 'text'.
     """
-    # Загрузка модели Whisper
-    model = load_model("base")  # Выберите нужный размер модели
-    
-    # Извлечение аудио из видео с помощью FFmpeg
-    audio_path = video_path.rsplit('.', 1)[0] + ".wav"
-    command = [
-        'ffmpeg',
-        '-i', video_path,
-        '-vn',
-        '-acodec', 'pcm_s16le',
-        '-ar', '16000',
-        '-ac', '1',
-        audio_path
-    ]
-    subprocess.run(command, check=True)
-    
-    # Транскрибирование аудио с помощью Whisper
-    result = model.transcribe(audio_path, task="transcribe")
-    
-    # Удаление временного аудиофайла
-    subprocess.run(['rm', audio_path])
-    
-    # Парсинг результатов для получения таймкодов и текста
-    fragments = []
-    for segment in result['segments']:
-        fragment = {
-            'start': float(segment['start']),
-            'end': float(segment['end']),
-            'text': segment['text'].strip()
-        }
-        fragments.append(fragment)
-    
-    # Оптимизация фрагментов
-    optimized_fragments = optimize_fragments(fragments)
-    
-    return optimized_fragments
+    try:
+        # Загрузка модели Whisper
+        model = load_model("base")  # Выберите нужный размер модели
+        
+        # Извлечение аудио из видео с помощью FFmpeg
+        audio_path = video_path.rsplit('.', 1)[0] + ".wav"
+        command = [
+            'ffmpeg',
+            '-i', video_path,
+            '-vn',  # Отключаем видео
+            '-acodec', 'pcm_s16le',  # Используем несжатый PCM
+            '-ar', '16000',  # Частота дискретизации 16kHz
+            '-ac', '1',  # Моно
+            '-y',  # Перезаписываем файл если существует
+            audio_path
+        ]
+        
+        # Запускаем FFmpeg и ждем завершения
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            raise Exception(f"FFmpeg failed: {stderr.decode()}")
+        
+        # Транскрибирование аудио с помощью Whisper
+        result = model.transcribe(
+            audio_path,
+            task="transcribe",
+            language=None,  # Автоопределение языка
+            initial_prompt="This is a video transcription."  # Помогает с контекстом
+        )
+        
+        # Парсинг результатов для получения таймкодов и текста
+        fragments = []
+        for segment in result['segments']:
+            # Проверяем качество сегмента
+            if segment.get('no_speech_prob', 0) > 0.5:  # Пропускаем сегменты без речи
+                continue
+                
+            fragment = {
+                'start': float(segment['start']),
+                'end': float(segment['end']),
+                'text': segment['text'].strip()
+            }
+            fragments.append(fragment)
+        
+        # Оптимизация фрагментов
+        optimized_fragments = optimize_fragments(fragments)
+        
+        return optimized_fragments
+        
+    except Exception as e:
+        logger.error(f"Error in extract_subtitles: {e}")
+        raise
+    finally:
+        # Используем os.remove для кроссплатформенного удаления файла
+        try:
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+        except Exception as e:
+            logger.warning(f"Failed to remove temporary audio file: {e}")

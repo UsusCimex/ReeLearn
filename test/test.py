@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 url = "http://localhost:8000/api/v1/upload"
 
 # Путь к видеофайлу
-file_path = "test.mp4"
+file_path = "short_test.mp4"
 
 # Проверяем существование файла
 if not os.path.exists(file_path):

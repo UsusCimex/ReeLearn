@@ -30,7 +30,10 @@ async def convert_to_bulk_format(fragment):
         "_source": {
             "fragment_id": fragment.id,
             "text": fragment.text,
-            "tags": fragment.tags
+            "tags": fragment.tags,
+            "speech_confidence": getattr(fragment, 'speech_confidence', 1.0),
+            "no_speech_prob": getattr(fragment, 'no_speech_prob', 0.0),
+            "language": getattr(fragment, 'language', 'unknown')
         }
     }
 
@@ -76,6 +79,15 @@ async def create_reelearn_index(delete_if_exist=True):
                         }
                     },
                     "tags": {
+                        "type": "keyword"
+                    },
+                    "speech_confidence": {  
+                        "type": "float"
+                    },
+                    "no_speech_prob": {     
+                        "type": "float"
+                    },
+                    "language": {           
                         "type": "keyword"
                     }
                 }

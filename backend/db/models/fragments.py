@@ -11,4 +11,7 @@ class Fragment(Base):
     s3_url = Column(String, nullable=False)
     text = Column(Text, nullable=True) 
     tags = Column(ARRAY(String), nullable=True)
+    speech_confidence = Column(Float, nullable=True)  # Уверенность в распознавании речи
+    no_speech_prob = Column(Float, nullable=True)     # Вероятность отсутствия речи
+    language = Column(String, nullable=True)          # Определенный язык
     video = relationship('Video', back_populates='fragments')

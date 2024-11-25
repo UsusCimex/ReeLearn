@@ -119,36 +119,84 @@ async def _async_process_video(self, video_id: int):
 
                 # Обрабатываем каждый фрагмент
                 for i, fragment in enumerate(video_fragments):
-                    # Создаем видеофрагмент
-                    fragment_path = os.path.join(temp_dir, f"fragment_{i}.mp4")
-                    await slice_video(video_path, fragment_path, fragment.start_time, fragment.end_time)
+                    try:
+                        # Создаем видеофрагмент
+                        fragment_path = os.path.join(temp_dir, f"fragment_{i}.mp4")
+                        success = await slice_video(video_path, fragment_path, fragment.start_time, fragment.end_time)
+                        
+                        if not success or not os.path.exists(fragment_path):
+                            logger.error(f"Failed to create video fragment {i} for video {video_id}")
+                            continue
 
-                    # Загружаем фрагмент в S3
-                    s3_key = f"fragments/{video_id}/{i}.mp4"
-                    s3_url = await upload_file_to_s3(fragment_path, s3_key)
+                        # Проверяем длительность созданного фрагмента
+                        check_duration_cmd = [
+                            'ffprobe',
+                            '-v', 'error',
+                            '-show_entries', 'format=duration',
+                            '-of', 'default=noprint_wrappers=1:nokey=1',
+                            fragment_path
+                        ]
+                        process = await asyncio.create_subprocess_exec(
+                            *check_duration_cmd,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE
+                        )
+                        stdout, stderr = await process.communicate()
+                        
+                        if process.returncode == 0:
+                            actual_duration = float(stdout.decode().strip())
+                            expected_duration = fragment.end_time - fragment.start_time
+                            
+                            # Проверяем, что длительность примерно совпадает
+                            if abs(actual_duration - expected_duration) > 0.5:  # допуск 0.5 секунды
+                                logger.warning(
+                                    f"Duration mismatch for fragment {i}: "
+                                    f"expected={expected_duration:.2f}, actual={actual_duration:.2f}"
+                                )
+                                continue
 
-                    # Создаем фрагмент в базе данных
-                    db_fragment = Fragment(
-                        video_id=video_id,
-                        timecode_start=fragment.start_time,
-                        timecode_end=fragment.end_time,
-                        text=fragment.text,
-                        s3_url=s3_url,
-                        tags=[]  # TODO: Implement tag extraction
-                    )
-                    session.add(db_fragment)
-                    await session.commit()
-                    logger.info(f"Создан фрагмент {db_fragment.id} для видео {video_id}")
+                        # Загружаем фрагмент в S3
+                        s3_key = f"fragments/{video_id}/{i}.mp4"
+                        s3_url = await upload_file_to_s3(fragment_path, s3_key)
+                        if not s3_url:
+                            logger.error(f"Failed to upload fragment {i} to S3")
+                            continue
 
-                    # Индексируем фрагмент в Elasticsearch
-                    await index_fragment(db_fragment.id, db_fragment.text, db_fragment.tags)
+                        # Создаем фрагмент в базе данных с метриками качества
+                        db_fragment = Fragment(
+                            video_id=video_id,
+                            timecode_start=fragment.start_time,
+                            timecode_end=fragment.end_time,
+                            text=fragment.text,
+                            s3_url=s3_url,
+                            tags=[],  # TODO: Implement tag extraction
+                            speech_confidence=getattr(fragment, 'speech_confidence', 1.0),
+                            no_speech_prob=getattr(fragment, 'no_speech_prob', 0.0),
+                            language=fragment.language
+                        )
+                        session.add(db_fragment)
+                        await session.commit()
+                        logger.info(f"Создан фрагмент {db_fragment.id} для видео {video_id}")
 
-                    # Обновляем прогресс
-                    progress = (i + 1) / len(video_fragments) * 100
-                    self.update_state(
-                        state='PROGRESS',
-                        meta={'current': i + 1, 'total': len(video_fragments), 'progress': progress}
-                    )
+                        # Индексируем фрагмент в Elasticsearch только если уверенность высокая
+                        if db_fragment.speech_confidence > 0.6 and db_fragment.no_speech_prob < 0.4:
+                            await index_fragment(db_fragment.id, db_fragment.text, db_fragment.tags)
+                            logger.info(f"Фрагмент {db_fragment.id} проиндексирован")
+                        else:
+                            logger.warning(
+                                f"Фрагмент {db_fragment.id} пропущен из-за низкого качества распознавания: "
+                                f"confidence={db_fragment.speech_confidence}, no_speech_prob={db_fragment.no_speech_prob}"
+                            )
+
+                        # Обновляем прогресс
+                        progress = (i + 1) / len(video_fragments) * 100
+                        self.update_state(
+                            state='PROGRESS',
+                            meta={'current': i + 1, 'total': len(video_fragments), 'progress': progress}
+                        )
+                    except Exception as e:
+                        logger.error(f"Error processing fragment {i} for video {video_id}: {e}")
+                        continue
 
                 # Обновляем статус видео
                 video.status = 'processed'

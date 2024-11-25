@@ -162,6 +162,13 @@ async def ensure_bucket_exists():
             raise
 
 async def generate_presigned_url(s3_url: str, expiration=3600):
+    """
+    Генерирует presigned URL для доступа к объекту в S3.
+    
+    :param s3_url: URL объекта в S3
+    :param expiration: Время жизни URL в секундах
+    :return: Публичный presigned URL
+    """
     parsed_url = urlparse(s3_url)
     path_parts = parsed_url.path.lstrip('/').split('/', 1)
     if len(path_parts) != 2:
@@ -169,9 +176,22 @@ async def generate_presigned_url(s3_url: str, expiration=3600):
     bucket_name, key = path_parts
 
     async with get_s3_client() as s3_client:
-        presigned_url = await s3_client.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': bucket_name, 'Key': key},
-            ExpiresIn=expiration
-        )
-        return presigned_url
+        try:
+            # Генерируем presigned URL с использованием внутреннего эндпоинта
+            presigned_url = await s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket_name, 'Key': key},
+                ExpiresIn=expiration
+            )
+            
+            # Заменяем внутренний эндпоинт на публичный в сгенерированном URL
+            if settings.S3_ENDPOINT_URL and settings.S3_PUBLIC_URL:
+                presigned_url = presigned_url.replace(
+                    settings.S3_ENDPOINT_URL,
+                    settings.S3_PUBLIC_URL
+                )
+            
+            return presigned_url
+        except Exception as e:
+            logger.error(f"Error generating presigned URL: {e}")
+            raise

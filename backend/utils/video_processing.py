@@ -61,11 +61,11 @@ class VideoFragment:
 class SmartVideoFragmenter:
     def __init__(
         self,
-        min_fragment_duration: float = 10.0,  # минимальная длительность в секундах
-        max_fragment_duration: float = 30.0,   # максимальная длительность в секундах
-        optimal_duration: float = 20.0,        # оптимальная длительность
-        default_language: str = 'en',          # язык по умолчанию, если не удается определить
-        max_sentences_per_fragment: int = 3    # максимальное количество предложений в одном фрагменте
+        min_fragment_duration: float = settings.VIDEO_MIN_FRAGMENT_DURATION,
+        max_fragment_duration: float = settings.VIDEO_MAX_FRAGMENT_DURATION,
+        optimal_duration: float = settings.VIDEO_OPTIMAL_DURATION,
+        default_language: str = settings.VIDEO_DEFAULT_LANGUAGE,
+        max_sentences_per_fragment: int = settings.VIDEO_MAX_SENTENCES_PER_FRAGMENT
     ):
         self.min_duration = min_fragment_duration
         self.max_duration = max_fragment_duration
@@ -129,41 +129,6 @@ class SmartVideoFragmenter:
         union = len(words1.union(words2))
         return intersection / union if union > 0 else 0
 
-    def _merge_coherent_segments(
-        self,
-        segments: List[SubtitleSegment],
-        coherence_threshold: float = 0.2
-    ) -> List[SubtitleSegment]:
-        """Объединяет связанные по смыслу сегменты."""
-        if not segments:
-            return []
-
-        merged = [segments[0]]
-        for curr_segment in segments[1:]:
-            prev_segment = merged[-1]
-            
-            # Проверяем длительность потенциального объединенного сегмента
-            merged_duration = curr_segment.end_time - prev_segment.start_time
-            if merged_duration > self.max_duration:
-                merged.append(curr_segment)
-                continue
-
-            # Оцениваем связность текста
-            coherence = self._calculate_segment_coherence(prev_segment, curr_segment)
-
-            if coherence >= coherence_threshold:
-                # Объединяем сегменты
-                merged[-1] = SubtitleSegment(
-                    start_time=prev_segment.start_time,
-                    end_time=curr_segment.end_time,
-                    text=f"{prev_segment.text} {curr_segment.text}",
-                    language=prev_segment.language
-                )
-            else:
-                merged.append(curr_segment)
-
-        return merged
-
     def _adjust_fragment_boundaries(
         self,
         segments: List[SubtitleSegment]
@@ -188,28 +153,29 @@ class SmartVideoFragmenter:
             )
 
         for next_segment in segments[1:]:
-            # Если язык изменился или достигнут лимит предложений, создаем новый фрагмент
-            total_sentences = len(current_sentences) + len(self._split_into_sentences(next_segment.text, next_segment.language))
+            next_sentences = self._split_into_sentences(next_segment.text, next_segment.language)
+            next_duration = next_segment.end_time - current_start_time
             
+            # Создаем новый фрагмент если:
+            # 1. Изменился язык
+            # 2. Превышен лимит предложений
+            # 3. Превышена оптимальная длительность И текущее предложение завершено
             if (current_segment.language != next_segment.language or 
-                total_sentences > self.max_sentences or 
-                next_segment.start_time - current_start_time > self.max_duration):
+                len(current_sentences) >= self.max_sentences or 
+                (next_duration > self.optimal_duration and 
+                 not (current_text[-1].endswith('...') or 
+                      next_segment.text.startswith('...')))):
                 
                 fragments.append(create_fragment(next_segment.start_time))
                 current_start_time = next_segment.start_time
                 current_segment = next_segment
                 current_text = [current_segment.text]
-                current_sentences = self._split_into_sentences(
-                    current_segment.text,
-                    current_segment.language
-                )
+                current_sentences = next_sentences
                 continue
 
             # Продолжаем накапливать текст
             current_text.append(next_segment.text)
-            current_sentences.extend(
-                self._split_into_sentences(next_segment.text, next_segment.language)
-            )
+            current_sentences.extend(next_sentences)
             current_segment = next_segment
 
         # Добавляем последний фрагмент
@@ -231,33 +197,121 @@ class SmartVideoFragmenter:
         Returns:
             Список VideoFragment с оптимизированными границами
         """
+        if not subtitles:
+            return []
+
         # Преобразуем входные данные в SubtitleSegment и определяем язык
         segments = []
         for sub in subtitles:
+            # Пропускаем пустые субтитры
+            if not sub['text'].strip():
+                continue
+                
+            # Определяем язык для каждого сегмента
             language = self._detect_language(sub['text'])
-            segment = SubtitleSegment(
-                start_time=sub['start'],
-                end_time=sub['end'],
-                text=sub['text'],
-                language=language
-            )
-            segments.append(segment)
-
-        # Объединяем связанные сегменты
-        merged_segments = self._merge_coherent_segments(segments)
-        
-        # Корректируем границы для достижения оптимальной длительности
-        fragments = self._adjust_fragment_boundaries(merged_segments)
-
-        # Логируем результаты
-        logger.info(f"Processed {len(subtitles)} subtitles into {len(fragments)} fragments")
-        language_stats = {}
-        for fragment in fragments:
-            language_stats[fragment.language] = language_stats.get(fragment.language, 0) + 1
             
-        logger.info("Language distribution in fragments:")
-        for lang, count in language_stats.items():
-            lang_name = SUPPORTED_LANGUAGES.get(lang, lang)
-            logger.info(f"- {lang_name}: {count} fragments")
+            # Разбиваем текст на предложения
+            sentences = self._split_into_sentences(sub['text'], language)
+            
+            # Если нет предложений, используем весь текст как одно предложение
+            if not sentences:
+                sentences = [sub['text']]
+            
+            # Вычисляем среднюю длительность на символ
+            duration = sub['end'] - sub['start']
+            chars_per_second = len(sub['text']) / duration if duration > 0 else 1.0
+            
+            # Если сегмент слишком длинный, разбиваем его на части
+            if duration > self.max_duration:
+                current_start = sub['start']
+                current_text = []
+                current_chars = 0
+                
+                for sentence in sentences:
+                    sentence_chars = len(sentence)
+                    sentence_duration = sentence_chars / chars_per_second
+                    
+                    # Если добавление предложения превысит оптимальную длительность
+                    # и уже есть накопленный текст, создаем новый сегмент
+                    if current_text and (current_chars + sentence_chars) / chars_per_second > self.optimal_duration:
+                        text = " ".join(current_text)
+                        segment_duration = current_chars / chars_per_second
+                        segments.append(SubtitleSegment(
+                            start_time=current_start,
+                            end_time=current_start + segment_duration,
+                            text=text,
+                            language=language
+                        ))
+                        current_start = current_start + segment_duration
+                        current_text = [sentence]
+                        current_chars = sentence_chars
+                    else:
+                        current_text.append(sentence)
+                        current_chars += sentence_chars
+                
+                # Добавляем последний накопленный текст
+                if current_text:
+                    segments.append(SubtitleSegment(
+                        start_time=current_start,
+                        end_time=sub['end'],
+                        text=" ".join(current_text),
+                        language=language
+                    ))
+            else:
+                segments.append(SubtitleSegment(
+                    start_time=sub['start'],
+                    end_time=sub['end'],
+                    text=sub['text'],
+                    language=language
+                ))
+
+        if not segments:
+            return []
+
+        # Объединяем короткие сегменты
+        merged_segments = []
+        current = segments[0]
+        
+        for next_seg in segments[1:]:
+            # Проверяем возможность объединения
+            merged_duration = next_seg.end_time - current.start_time
+            gap_duration = next_seg.start_time - current.end_time
+            
+            can_merge = (
+                current.language == next_seg.language and  # Один язык
+                merged_duration <= self.max_duration and   # Не превышает максимальную длительность
+                gap_duration <= 0.1 and                    # Нет большого разрыва между сегментами
+                len(self._split_into_sentences(current.text + " " + next_seg.text, current.language)) <= self.max_sentences  # Не превышает лимит предложений
+            )
+            
+            if can_merge:
+                # Объединяем сегменты
+                current = SubtitleSegment(
+                    start_time=current.start_time,
+                    end_time=next_seg.end_time,
+                    text=f"{current.text} {next_seg.text}",
+                    language=current.language
+                )
+            else:
+                merged_segments.append(current)
+                current = next_seg
+        
+        # Добавляем последний сегмент
+        merged_segments.append(current)
+
+        # Преобразуем в VideoFragment
+        fragments = []
+        for segment in merged_segments:
+            sentences = self._split_into_sentences(segment.text, segment.language)
+            if not sentences:
+                sentences = [segment.text]
+                
+            fragments.append(VideoFragment(
+                start_time=segment.start_time,
+                end_time=segment.end_time,
+                text=segment.text,
+                sentences=sentences,
+                language=segment.language
+            ))
 
         return fragments
