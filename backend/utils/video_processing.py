@@ -1,11 +1,12 @@
-from typing import List, Dict, Tuple
+from typing import List, Optional, Dict
+from dataclasses import dataclass
+from langdetect import detect
 import nltk
+from core.config import settings
 from nltk.tokenize import sent_tokenize
 from nltk.tokenize.punkt import PunktSentenceTokenizer
 import numpy as np
-from dataclasses import dataclass
 from core.logger import logger
-from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
 
 # Download required NLTK data for multiple languages
@@ -63,12 +64,14 @@ class SmartVideoFragmenter:
         min_fragment_duration: float = 10.0,  # минимальная длительность в секундах
         max_fragment_duration: float = 30.0,   # максимальная длительность в секундах
         optimal_duration: float = 20.0,        # оптимальная длительность
-        default_language: str = 'en'           # язык по умолчанию, если не удается определить
+        default_language: str = 'en',          # язык по умолчанию, если не удается определить
+        max_sentences_per_fragment: int = 3    # максимальное количество предложений в одном фрагменте
     ):
         self.min_duration = min_fragment_duration
         self.max_duration = max_fragment_duration
         self.optimal_duration = optimal_duration
         self.default_language = default_language
+        self.max_sentences = max_sentences_per_fragment
         self.sentence_tokenizers = {}
         
     def _detect_language(self, text: str) -> str:
@@ -173,17 +176,27 @@ class SmartVideoFragmenter:
             current_segment.text,
             current_segment.language
         )
+        current_start_time = current_segment.start_time
+
+        def create_fragment(end_time):
+            return VideoFragment(
+                start_time=current_start_time,
+                end_time=end_time,
+                text=" ".join(current_text),
+                sentences=current_sentences.copy(),
+                language=current_segment.language
+            )
 
         for next_segment in segments[1:]:
-            # Если язык изменился, создаем новый фрагмент
-            if current_segment.language != next_segment.language:
-                fragments.append(VideoFragment(
-                    start_time=current_segment.start_time,
-                    end_time=next_segment.start_time,
-                    text=" ".join(current_text),
-                    sentences=current_sentences,
-                    language=current_segment.language
-                ))
+            # Если язык изменился или достигнут лимит предложений, создаем новый фрагмент
+            total_sentences = len(current_sentences) + len(self._split_into_sentences(next_segment.text, next_segment.language))
+            
+            if (current_segment.language != next_segment.language or 
+                total_sentences > self.max_sentences or 
+                next_segment.start_time - current_start_time > self.max_duration):
+                
+                fragments.append(create_fragment(next_segment.start_time))
+                current_start_time = next_segment.start_time
                 current_segment = next_segment
                 current_text = [current_segment.text]
                 current_sentences = self._split_into_sentences(
@@ -192,39 +205,16 @@ class SmartVideoFragmenter:
                 )
                 continue
 
-            potential_duration = next_segment.end_time - current_segment.start_time
-            
-            if potential_duration <= self.optimal_duration:
-                # Продолжаем накапливать текст
-                current_text.append(next_segment.text)
-                current_sentences.extend(
-                    self._split_into_sentences(next_segment.text, next_segment.language)
-                )
-            else:
-                # Создаем новый фрагмент
-                fragments.append(VideoFragment(
-                    start_time=current_segment.start_time,
-                    end_time=next_segment.start_time,
-                    text=" ".join(current_text),
-                    sentences=current_sentences,
-                    language=current_segment.language
-                ))
-                # Начинаем новый фрагмент
-                current_segment = next_segment
-                current_text = [current_segment.text]
-                current_sentences = self._split_into_sentences(
-                    current_segment.text,
-                    current_segment.language
-                )
+            # Продолжаем накапливать текст
+            current_text.append(next_segment.text)
+            current_sentences.extend(
+                self._split_into_sentences(next_segment.text, next_segment.language)
+            )
+            current_segment = next_segment
 
         # Добавляем последний фрагмент
-        fragments.append(VideoFragment(
-            start_time=current_segment.start_time,
-            end_time=segments[-1].end_time,
-            text=" ".join(current_text),
-            sentences=current_sentences,
-            language=current_segment.language
-        ))
+        if current_text:
+            fragments.append(create_fragment(segments[-1].end_time))
 
         return fragments
 

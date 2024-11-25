@@ -3,6 +3,7 @@ from services.search_service import (
     search_in_elasticsearch,
     assemble_search_results
 )
+from core.config import settings
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base, scoped_session
 from sqlalchemy import select
@@ -12,7 +13,6 @@ from services.processing_service import extract_subtitles
 from utils.s3_utils import download_file_from_s3, upload_file_to_s3
 from utils.ffmpeg_utils import slice_video
 from utils.elasticsearch_utils import get_elasticsearch
-from core.config import settings
 import os
 from celery.utils.log import get_task_logger
 import asyncio
@@ -106,10 +106,11 @@ async def _async_process_video(self, video_id: int):
 
                 # Создаем фрагментатор
                 fragmenter = SmartVideoFragmenter(
-                    min_fragment_duration=10.0,
-                    max_fragment_duration=30.0,
-                    optimal_duration=20.0,
-                    default_language='en'  # Use 'en' as default, language will be auto-detected per segment
+                    min_fragment_duration=settings.VIDEO_MIN_FRAGMENT_DURATION,
+                    max_fragment_duration=settings.VIDEO_MAX_FRAGMENT_DURATION,
+                    optimal_duration=settings.VIDEO_OPTIMAL_DURATION,
+                    default_language=settings.VIDEO_DEFAULT_LANGUAGE,
+                    max_sentences_per_fragment=settings.VIDEO_MAX_SENTENCES_PER_FRAGMENT
                 )
                 
                 # Обрабатываем субтитры и получаем оптимизированные фрагменты

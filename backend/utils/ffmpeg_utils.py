@@ -1,5 +1,6 @@
 import asyncio
 import subprocess
+from core.config import settings
 
 async def slice_video(source_path: str, fragment_path: str, start: int, end: int) -> bool:
     """
@@ -17,7 +18,9 @@ async def slice_video(source_path: str, fragment_path: str, start: int, end: int
         '-i', source_path,
         '-ss', str(start),
         '-t', str(duration),
-        '-c', 'copy',
+        '-threads', str(settings.FFMPEG_THREADS),
+        '-preset', settings.FFMPEG_PRESET,
+        '-crf', str(settings.FFMPEG_CRF),
         fragment_path
     ]
     try:

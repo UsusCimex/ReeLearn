@@ -1,11 +1,14 @@
+import asyncio
 import aioboto3
 import aiofiles
 import os
 import logging
+import json
 from urllib.parse import urlparse
 from core.config import settings
 from botocore.exceptions import ClientError
 from contextlib import asynccontextmanager
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +35,11 @@ async def get_s3_client():
             await client.close()
 
 async def upload_file_to_s3(file_path: str, key: str) -> str:
+    """Upload a file to S3 and return its public URL."""
     logger.info(f"Starting S3 upload for file: {file_path}")
+    
+    # Ensure bucket exists with proper configuration
+    await ensure_bucket_exists()
     
     async with get_s3_client() as s3_client:
         try:
@@ -120,14 +127,39 @@ async def download_file_from_s3(s3_url: str, destination_path: str) -> bool:
         return False
 
 async def ensure_bucket_exists():
+    """Ensure the bucket exists and has proper public access configuration."""
     async with get_s3_client() as s3_client:
         try:
-            # Check if bucket exists
-            await s3_client.head_bucket(Bucket=settings.S3_BUCKET_NAME)
-        except:
             # Create bucket if it doesn't exist
-            await s3_client.create_bucket(Bucket=settings.S3_BUCKET_NAME)
-            logger.info(f"Created bucket: {settings.S3_BUCKET_NAME}")
+            try:
+                await s3_client.head_bucket(Bucket=settings.S3_BUCKET_NAME)
+            except ClientError:
+                await s3_client.create_bucket(Bucket=settings.S3_BUCKET_NAME)
+                logger.info(f"Created bucket: {settings.S3_BUCKET_NAME}")
+
+            # Set bucket policy to allow public read access
+            policy = {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Sid": "PublicRead",
+                        "Effect": "Allow",
+                        "Principal": "*",
+                        "Action": ["s3:GetObject"],
+                        "Resource": [f"arn:aws:s3:::{settings.S3_BUCKET_NAME}/*"]
+                    }
+                ]
+            }
+            
+            await s3_client.put_bucket_policy(
+                Bucket=settings.S3_BUCKET_NAME,
+                Policy=json.dumps(policy)
+            )
+            logger.info(f"Set public read policy for bucket: {settings.S3_BUCKET_NAME}")
+
+        except Exception as e:
+            logger.error(f"Error configuring bucket: {e}")
+            raise
 
 async def generate_presigned_url(s3_url: str, expiration=3600):
     parsed_url = urlparse(s3_url)
