@@ -31,9 +31,9 @@ class Settings(BaseSettings):
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     # Video Processing Settings
-    VIDEO_MIN_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MIN_FRAGMENT_DURATION", "2.0"))
-    VIDEO_MAX_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MAX_FRAGMENT_DURATION", "6.0"))
-    VIDEO_OPTIMAL_DURATION: float = float(os.getenv("VIDEO_OPTIMAL_DURATION", "4.0"))
+    VIDEO_MIN_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MIN_FRAGMENT_DURATION", "3.0"))
+    VIDEO_MAX_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MAX_FRAGMENT_DURATION", "7.0"))
+    VIDEO_OPTIMAL_DURATION: float = float(os.getenv("VIDEO_OPTIMAL_DURATION", "5.0"))
     VIDEO_DEFAULT_LANGUAGE: str = os.getenv("VIDEO_DEFAULT_LANGUAGE", "en")
     VIDEO_MAX_SENTENCES_PER_FRAGMENT: int = int(os.getenv("VIDEO_MAX_SENTENCES_PER_FRAGMENT", "2"))
 
