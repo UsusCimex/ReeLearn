@@ -11,6 +11,13 @@ async def get_task_status(task_id: str):
     """Получение статуса любой задачи по её ID."""
     task = AsyncResult(task_id)
     
+    # Если задача не найдена в Redis (состояние PENDING и результат None)
+    if task.state == 'PENDING' and task.result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task {task_id} not found"
+        )
+    
     # Определяем тип задачи по имени
     task_type = task.name if task.name else "unknown"
     

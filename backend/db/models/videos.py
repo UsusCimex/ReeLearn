@@ -9,3 +9,4 @@ class Video(Base):
     description = Column(Text, nullable=True)
     fragments = relationship('Fragment', back_populates='video')
     s3_url = Column(String, nullable=False)
+    status = Column(String, nullable=False, default='pending')
