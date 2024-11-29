@@ -27,17 +27,11 @@ async def get_task_status(task_id: str):
             'progress': 0,
             'current_operation': 'Ожидание начала обработки'
         }
-    elif task.state == 'DOWNLOADING':  # Для process_video_task
+    elif task.state == 'PROGRESS':  # Для process_video_task
         response = {
-            'status': 'processing',
+            'status': 'progress',
             'progress': task.info.get('progress', 0),
-            'current_operation': 'Загрузка видео'
-        }
-    elif task.state == 'PROCESSING':  # Для process_video_task
-        response = {
-            'status': 'processing',
-            'progress': task.info.get('progress', 0),
-            'current_operation': task.info.get('status', 'Обработка')
+            'current_operation': task.info.get('current_operation', 'Обработка видео')
         }
     elif task.state == 'SUCCESS':
         if 'search_task' in task_type:
@@ -71,10 +65,12 @@ async def get_task_status(task_id: str):
             'error': error_msg
         }
     else:
+        # Для всех остальных состояний пытаемся получить информацию из task.info
+        info = task.info or {}
         response = {
             'status': task.state.lower(),
-            'progress': task.info.get('progress', 0) if task.info else 0,
-            'current_operation': 'Неизвестное состояние'
+            'progress': info.get('progress', 0),
+            'current_operation': info.get('current_operation', f'Состояние: {task.state}')
         }
     
     return response

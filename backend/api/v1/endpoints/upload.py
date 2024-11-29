@@ -4,7 +4,6 @@ from db.repositories.video_repository import VideoRepository
 from db.dependencies import get_db
 from schemas.upload import UploadResponse
 from worker.tasks.process_video_task import process_video_task
-from utils.s3_utils import upload_file_to_s3
 from core.config import settings
 from typing import Optional
 import logging
@@ -54,41 +53,33 @@ async def upload_video(
             detail={"message": "Ошибка при сохранении файла", "error": str(e)}
         )
     
-    # Загрузка файла в S3
-    try:
-        logger.info("Starting S3 upload...")
-        s3_url = await upload_file_to_s3(file_path=temp_file_path, key=unique_filename)
-        logger.info(f"S3 upload successful, URL: {s3_url}")
-    except Exception as e:
-        logger.error(f"S3 upload error: {str(e)}")
-        # Удаление временного файла в случае ошибки
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
-        raise HTTPException(
-            status_code=500,
-            detail={"message": "Ошибка при загрузке файла в S3", "error": str(e)}
-        )
-    
-    # Удаление временного файла после загрузки
-    if os.path.exists(temp_file_path):
-        os.remove(temp_file_path)
-        logger.info("Temporary file removed")
-    
     try:
         # Сохранение метаинформации о видео в базе данных
         logger.info("Saving to database...")
         video_repo = VideoRepository(session)
-        video = await video_repo.create_video(name=name, description=description, s3_url=s3_url)
+        video = await video_repo.create_video(
+            name=name, 
+            description=description, 
+            s3_url="",  # Will be updated by the task
+            status="uploading"  # Initial status
+        )
         logger.info(f"Database entry created with ID: {video.id}")
         
-        # Запуск задачи Celery для обработки видео
+        # Запуск задачи Celery для загрузки в S3 и обработки видео
         logger.info("Starting Celery task...")
-        task = process_video_task.delay(video.id)
+        task = process_video_task.delay(
+            video_id=video.id,
+            temp_file_path=temp_file_path,
+            original_filename=unique_filename
+        )
         logger.info(f"Celery task started with ID: {task.id}")
         
-        return UploadResponse(video_id=video.id, status="processing", task_id=task.id)
+        return UploadResponse(video_id=video.id, status="uploading", task_id=task.id)
     except Exception as e:
         logger.error(f"Database/Celery error: {str(e)}")
+        # Удаление временного файла в случае ошибки
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
         raise HTTPException(
             status_code=500,
             detail={"message": "Ошибка при сохранении в базу данных", "error": str(e)}

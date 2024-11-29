@@ -1,6 +1,7 @@
 import asyncio
 import subprocess
 from core.config import settings
+from core.logger import logger
 
 async def slice_video(source_path: str, fragment_path: str, start: float, end: float) -> bool:
     """
@@ -23,15 +24,32 @@ async def slice_video(source_path: str, fragment_path: str, start: float, end: f
         '-crf', str(settings.FFMPEG_CRF),
         '-avoid_negative_ts', '1',  # Предотвращаем проблемы с отрицательными таймстампами
         '-copyts',  # Сохраняем оригинальные таймстампы
+        '-y',  # Перезаписываем файл если существует
+        '-loglevel', 'error',  # Показываем только ошибки
         fragment_path
     ]
+    
     try:
+        logger.debug(f"Запуск FFmpeg команды: {' '.join(command)}")
         process = await asyncio.create_subprocess_exec(
             *command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        await process.communicate()
-        return process.returncode == 0
-    except Exception:
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Неизвестная ошибка"
+            logger.error(f"FFmpeg ошибка при нарезке фрагмента {start}-{end}: {error_msg}")
+            return False
+            
+        if stderr:
+            # FFmpeg может вернуть 0, но с предупреждениями
+            logger.warning(f"FFmpeg предупреждения: {stderr.decode()}")
+            
+        logger.debug(f"Фрагмент успешно создан: {fragment_path}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Исключение при нарезке фрагмента {start}-{end}: {str(e)}", exc_info=True)
         return False

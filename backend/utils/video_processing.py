@@ -57,7 +57,8 @@ class VideoFragment:
     text: str
     sentences: List[str]
     language: str
-    
+    tags: List[str] = None
+
 class SmartVideoFragmenter:
     def __init__(
         self,
@@ -305,7 +306,7 @@ class SmartVideoFragmenter:
             sentences = self._split_into_sentences(segment.text, segment.language)
             if not sentences:
                 sentences = [segment.text]
-                
+            
             fragments.append(VideoFragment(
                 start_time=segment.start_time,
                 end_time=segment.end_time,

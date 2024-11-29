@@ -98,8 +98,8 @@ async def search_in_elasticsearch(query, exact=False, tags=None, min_score=1.0):
 
 async def get_fragments_with_videos(fragment_ids):
     logger.info(f"Getting fragments from database: {fragment_ids}")
-    async with async_session() as session:
-        try:
+    try:
+        async with AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Fragment).filter(Fragment.id.in_(fragment_ids))
             )
@@ -109,9 +109,9 @@ async def get_fragments_with_videos(fragment_ids):
                 await session.refresh(fragment, ['video'])
             logger.info(f"Found {len(fragments)} fragments in database")
             return fragments
-        except Exception as e:
-            logger.error(f"Error in get_fragments_with_videos: {e}", exc_info=True)
-            raise DatabaseError(f"Error fetching fragments from database: {e}")
+    except Exception as e:
+        logger.error(f"Error in get_fragments_with_videos: {e}", exc_info=True)
+        raise DatabaseError(f"Error fetching fragments from database: {e}")
 
 async def assemble_search_results(hits, fragments, results_per_video=2):
     logger.info(f"Assembling search results from {len(hits)} hits and {len(fragments)} fragments")
