@@ -1,9 +1,7 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import UploadComponent from './components/UploadComponent';
-import UploadStatusComponent from './components/UploadStatusComponent';
+import { BrowserRouter as Router } from 'react-router-dom';
 import SearchComponent from './components/SearchComponent';
-import SearchResultsComponent from './components/SearchResultsComponent';
+import UploadComponent from './components/UploadComponent';
 import './App.css';
 
 function App() {
@@ -12,20 +10,16 @@ function App() {
       <div className="App">
         <header className="App-header">
           <h1>Поиск по видео</h1>
-          <nav>
-            <ul>
-              <li><Link to="/">Загрузить видео</Link></li>
-              <li><Link to="/search">Поиск видео</Link></li>
-            </ul>
-          </nav>
         </header>
-        <main>
-          <Routes>
-            <Route path="/" element={<UploadComponent />} />
-            <Route path="/upload-status/:taskId" element={<UploadStatusComponent />} />
-            <Route path="/search" element={<SearchComponent />} />
-            <Route path="/search-results/:taskId" element={<SearchResultsComponent />} />
-          </Routes>
+        <main className="App-main">
+          <div className="main-container">
+            <div className="upload-section">
+              <UploadComponent />
+            </div>
+            <div className="search-section">
+              <SearchComponent />
+            </div>
+          </div>
         </main>
       </div>
     </Router>

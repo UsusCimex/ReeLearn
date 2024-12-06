@@ -25,11 +25,17 @@ const handleApiError = (error: unknown, defaultMessage: string): never => {
     throw new Error(defaultMessage);
 };
 
-export const uploadVideo = async (formData: FormData): Promise<UploadResponse> => {
+export const uploadVideo = async (formData: FormData, onProgress?: (progress: number) => void): Promise<UploadResponse> => {
     try {
         const response = await api.post<UploadResponse>('/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
+            },
+            onUploadProgress: (progressEvent) => {
+                if (progressEvent.total && onProgress) {
+                    const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    onProgress(progress);
+                }
             },
         });
         return response.data;
