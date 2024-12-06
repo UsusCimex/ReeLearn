@@ -17,7 +17,7 @@ def search_task(self, query, exact=False, tags=None, results_per_video=2, min_sc
     try:
         logger.info(f"Starting search task with query: '{query}', exact: {exact}, tags: {tags}, results_per_video: {results_per_video}, min_score: {min_score}")
         
-        # Создаем новый event loop для асинхронных операций
+        # Создаем новый event loop для каждой задачи
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -29,12 +29,12 @@ def search_task(self, query, exact=False, tags=None, results_per_video=2, min_sc
                     exact=exact,
                     tags=tags,
                     results_per_video=results_per_video,
-                    min_score=min_score
+                    min_score=min_score,
+                    loop=loop
                 )
             )
             return results
         finally:
-            # Всегда закрываем loop
             loop.close()
             
     except DatabaseError as e:
@@ -59,7 +59,7 @@ def search_task(self, query, exact=False, tags=None, results_per_video=2, min_sc
         )
         raise e
 
-async def _async_search(query, exact=False, tags=None, results_per_video=2, min_score=1.0):
+async def _async_search(query, exact=False, tags=None, results_per_video=2, min_score=1.0, loop=None):
     """
     Асинхронная функция, содержащая основную логику поиска.
     """
@@ -76,7 +76,7 @@ async def _async_search(query, exact=False, tags=None, results_per_video=2, min_
     fragment_ids = [hit['_source']['fragment_id'] for hit in hits]
     
     # Получаем фрагменты из базы данных
-    fragments = await get_fragments_with_videos(fragment_ids)
+    fragments = await get_fragments_with_videos(fragment_ids, loop)
     logger.info(f"Retrieved {len(fragments)} fragments from database")
 
     # Сборка результатов

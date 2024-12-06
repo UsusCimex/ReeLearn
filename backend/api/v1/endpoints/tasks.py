@@ -9,68 +9,68 @@ router = APIRouter()
 @router.get("/{task_id}", response_model=TaskStatusResponse)
 async def get_task_status(task_id: str):
     """Получение статуса любой задачи по её ID."""
-    task = AsyncResult(task_id)
-    
-    # Если задача не найдена в Redis (состояние PENDING и результат None)
-    if task.state == 'PENDING' and task.result is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Task {task_id} not found"
-        )
-    
-    # Определяем тип задачи по имени
-    task_type = task.name if task.name else "unknown"
-    
-    if task.state == 'PENDING':
-        response = {
-            'status': 'pending',
-            'progress': 0,
-            'current_operation': 'Ожидание начала обработки'
-        }
-    elif task.state == 'PROGRESS':  # Для process_video_task
-        response = {
-            'status': 'progress',
-            'progress': task.info.get('progress', 0),
-            'current_operation': task.info.get('current_operation', 'Обработка видео')
-        }
-    elif task.state == 'SUCCESS':
-        if 'search_task' in task_type:
-            # Для поисковых задач
-            result = task.result
-            response = {
-                'status': 'completed',
-                'progress': 100,
-                'current_operation': 'Поиск завершен',
-                'result': result.get('results', []) if isinstance(result, dict) else result
-            }
-        else:
-            # Для задач обработки видео
-            response = {
-                'status': 'completed',
-                'progress': 100,
-                'current_operation': 'Обработка завершена',
-                'result': task.result
-            }
-    elif task.state == 'FAILURE':
-        error_info = task.info
-        if isinstance(error_info, Exception):
-            error_msg = str(error_info)
-        else:
-            error_msg = str(error_info) if error_info else "Неизвестная ошибка"
+    try:
+        task = AsyncResult(task_id)
         
-        response = {
-            'status': 'failed',
-            'progress': 0,
-            'current_operation': 'Ошибка',
-            'error': error_msg
-        }
-    else:
-        # Для всех остальных состояний пытаемся получить информацию из task.info
-        info = task.info or {}
-        response = {
-            'status': task.state.lower(),
-            'progress': info.get('progress', 0),
-            'current_operation': info.get('current_operation', f'Состояние: {task.state}')
-        }
-    
-    return response
+        # Определяем тип задачи по имени
+        task_type = task.name if task.name else "unknown"
+        
+        if task.state == 'PENDING':
+            # Всегда возвращаем статус для PENDING задач
+            response = {
+                'status': 'pending',
+                'progress': 0,
+                'current_operation': 'Задача в очереди на выполнение'
+            }
+        elif task.state == 'PROGRESS':
+            response = {
+                'status': 'progress',
+                'progress': task.info.get('progress', 0),
+                'current_operation': task.info.get('current_operation', 'Обработка...')
+            }
+        elif task.state == 'SUCCESS':
+            if 'search_task' in task_type:
+                # Для поисковых задач
+                result = task.result
+                response = {
+                    'status': 'completed',
+                    'progress': 100,
+                    'current_operation': 'Поиск завершен',
+                    'result': result.get('results', []) if isinstance(result, dict) else result
+                }
+            else:
+                # Для задач обработки видео
+                response = {
+                    'status': 'completed',
+                    'progress': 100,
+                    'current_operation': 'Обработка завершена',
+                    'result': task.result
+                }
+        elif task.state == 'FAILURE':
+            error_info = task.info
+            if isinstance(error_info, Exception):
+                error_msg = str(error_info)
+            else:
+                error_msg = str(error_info) if error_info else "Неизвестная ошибка"
+            
+            response = {
+                'status': 'failed',
+                'progress': 0,
+                'current_operation': 'Ошибка',
+                'error': error_msg
+            }
+        else:
+            # Для всех остальных состояний
+            info = task.info or {}
+            response = {
+                'status': task.state.lower(),
+                'progress': info.get('progress', 0),
+                'current_operation': info.get('current_operation', f'Состояние: {task.state}')
+            }
+        
+        return response
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving task status: {str(e)}"
+        )

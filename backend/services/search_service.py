@@ -1,4 +1,4 @@
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.future import select
 from db.models.fragments import Fragment
 from utils.elasticsearch_utils import get_elasticsearch
@@ -96,22 +96,35 @@ async def search_in_elasticsearch(query, exact=False, tags=None, min_score=1.0):
             logger.error(f"Error in search_in_elasticsearch: {e}", exc_info=True)
             raise ElasticsearchException(f"Error executing Elasticsearch search: {e}")
 
-async def get_fragments_with_videos(fragment_ids):
+async def get_fragments_with_videos(fragment_ids, loop=None):
     logger.info(f"Getting fragments from database: {fragment_ids}")
+    engine = None
     try:
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(Fragment).filter(Fragment.id.in_(fragment_ids))
-            )
-            fragments = result.scalars().all()
-            # Force load video relationships while session is active
-            for fragment in fragments:
-                await session.refresh(fragment, ['video'])
-            logger.info(f"Found {len(fragments)} fragments in database")
-            return fragments
+        # Создаем engine с привязкой к конкретному event loop
+        engine = create_async_engine(
+            settings.DATABASE_URL,
+            echo=True,
+            future=True,
+            pool_pre_ping=True
+        )
+        
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            async with session.begin():
+                result = await session.execute(
+                    select(Fragment).filter(Fragment.id.in_(fragment_ids))
+                )
+                fragments = result.scalars().all()
+                # Force load video relationships while session is active
+                for fragment in fragments:
+                    await session.refresh(fragment, ['video'])
+                logger.info(f"Found {len(fragments)} fragments in database")
+                return fragments
     except Exception as e:
         logger.error(f"Error in get_fragments_with_videos: {e}", exc_info=True)
         raise DatabaseError(f"Error fetching fragments from database: {e}")
+    finally:
+        if engine is not None:
+            await engine.dispose()
 
 async def assemble_search_results(hits, fragments, results_per_video=2):
     logger.info(f"Assembling search results from {len(hits)} hits and {len(fragments)} fragments")
