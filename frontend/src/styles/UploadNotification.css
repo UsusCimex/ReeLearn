@@ -1,0 +1,148 @@
+.upload-notification {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  margin: 8px 0;
+  transition: all 0.3s ease;
+  border-left: 4px solid #4a90e2;
+  pointer-events: auto;
+  position: relative;
+}
+
+.upload-notification:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.upload-notification.uploading {
+  border-left-color: #4a90e2;
+}
+
+.upload-notification.processing {
+  border-left-color: #f39c12;
+}
+
+.upload-notification.completed {
+  border-left-color: #2ecc71;
+  animation: pulse 2s infinite;
+}
+
+.upload-notification.failed {
+  border-left-color: #e74c3c;
+}
+
+.upload-notification .title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #2c3e50;
+}
+
+.upload-notification .progress-container {
+  margin: 8px 0;
+}
+
+.upload-notification .progress-bar {
+  height: 6px;
+  background-color: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.upload-notification .progress-fill {
+  height: 100%;
+  background-color: #4a90e2;
+  transition: width 0.3s ease;
+}
+
+.upload-notification.completed .progress-fill {
+  background-color: #2ecc71;
+}
+
+.upload-notification.failed .progress-fill {
+  background-color: #e74c3c;
+}
+
+.upload-notification .operation {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 4px;
+}
+
+.upload-notification.completed .operation {
+  color: #27ae60;
+  font-weight: 500;
+}
+
+.upload-notification.failed .operation {
+  color: #c0392b;
+}
+
+.upload-notification .close-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 16px;
+  transition: color 0.2s ease;
+}
+
+.upload-notification .close-button:hover {
+  color: #666;
+}
+
+.upload-notification.clickable {
+  cursor: pointer;
+}
+
+.upload-notification.completed:hover:after {
+  content: "Click to view fragments";
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 0.8em;
+  color: #27ae60;
+  font-weight: 500;
+}
+
+.notifications-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 320px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  padding: 8px;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.1);
+  }
+  50% {
+    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);
+  }
+  100% {
+    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.1);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from sqlalchemy.sql import text
+from sqlalchemy import select
 from starlette.middleware.cors import CORSMiddleware
 from core.config import settings
 from api.v1.router import api_router
-from utils.elasticsearch_utils import create_reelearn_index
+from utils.elasticsearch_utils import create_reelearn_index, replace_all_fragments
 from utils.s3_utils import ensure_bucket_exists, get_s3_client
 from db.base import engine, Base
+from db.models.fragments import Fragment
 import asyncio
 from datetime import datetime
 import logging
@@ -82,11 +84,36 @@ async def startup_event():
             await conn.execute(text("SELECT 1"))
             print("Database is ready!")
     except Exception as e:
-        print(f"Database not ready, Error: {e}")
+        print(f"Database connection failed: {e}")
         raise Exception("Database connection failed")
 
+    # Create tables if they don't exist
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        print("Database tables created!")
+
+    # Create Elasticsearch index
     await create_reelearn_index()
-    
+    print("Elasticsearch index created!")
+
+    # Reindex all existing fragments
+    try:
+        async with engine.connect() as conn:
+            # Get all fragments from database
+            query = select(Fragment)
+            result = await conn.execute(query)
+            fragments = result.scalars().all()
+            
+            if fragments:
+                # Reindex all fragments
+                await replace_all_fragments(fragments)
+                print(f"Successfully reindexed {len(fragments)} fragments in Elasticsearch")
+            else:
+                print("No fragments found for indexing")
+    except Exception as e:
+        print(f"Error during fragment reindexing: {e}")
+        # Don't raise exception here to allow the application to start even if reindexing fails
+
     # Ensure MinIO bucket exists
     try:
         await ensure_bucket_exists()
@@ -94,10 +121,6 @@ async def startup_event():
     except Exception as e:
         print(f"Failed to create MinIO bucket: {e}")
         raise Exception("MinIO bucket creation failed")
-
-    # Создаем таблицы
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
 @app.on_event("shutdown")
 async def shutdown_event():

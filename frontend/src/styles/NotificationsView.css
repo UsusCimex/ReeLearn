@@ -1,0 +1,102 @@
+.notifications-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.notifications-loading,
+.notifications-error,
+.notifications-empty {
+  text-align: center;
+  padding: 20px;
+  font-size: 1.2em;
+  color: #666;
+}
+
+.notifications-error {
+  color: #dc3545;
+}
+
+.videos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.video-item {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.video-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.video-title {
+  margin: 0;
+  font-size: 1.2em;
+  color: #212529;
+}
+
+.video-date {
+  color: #6c757d;
+  font-size: 0.9em;
+}
+
+.video-info {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.video-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.status-completed {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-processing {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-failed {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.fragments-count {
+  color: #6c757d;
+  font-size: 0.9em;
+}
+
+.video-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.view-fragments-btn {
+  background-color: #007bff;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.9em;
+  transition: background-color 0.2s;
+}
+
+.view-fragments-btn:hover {
+  background-color: #0056b3;
+  text-decoration: none;
+  color: white;
+}

@@ -1,64 +1,112 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { SearchResult } from '../types';
+import '../styles/VideoPlayerComponent.css';
 
-interface VideoPlayerProps {
-    url: string;
-    startTime: number;
-    endTime: number;
+interface VideoPlayerComponentProps {
+  result: SearchResult;
 }
 
-const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({ 
-    url, 
-    startTime, 
-    endTime 
-}) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const [error, setError] = useState<string | null>(null);
+const VideoPlayerComponent: React.FC<VideoPlayerComponentProps> = ({ result }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
+  useEffect(() => {
+    if (videoRef.current && result.presigned_url) {
+      videoRef.current.src = result.presigned_url;
+      videoRef.current.currentTime = result.timecode_start;
+    }
+  }, [result]);
 
-        // Устанавливаем начальное время воспроизведения
-        video.currentTime = startTime;
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
 
-        // Обработчик для остановки видео при достижении конечного времени
-        const handleTimeUpdate = () => {
-            if (video.currentTime >= endTime) {
-                video.pause();
-            }
-        };
+    const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+    };
 
-        // Обработчик ошибок загрузки видео
-        const handleError = () => {
-            setError('Ошибка при загрузке видео');
-        };
+    const handleDurationChange = () => {
+      setDuration(video.duration);
+    };
 
-        video.addEventListener('timeupdate', handleTimeUpdate);
-        video.addEventListener('error', handleError);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('durationchange', handleDurationChange);
 
-        return () => {
-            video.removeEventListener('timeupdate', handleTimeUpdate);
-            video.removeEventListener('error', handleError);
-        };
-    }, [startTime, endTime]);
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('durationchange', handleDurationChange);
+    };
+  }, []);
 
-    return (
-        <div className="video-player">
-            {error ? (
-                <div className="video-error">{error}</div>
-            ) : (
-                <video
-                    ref={videoRef}
-                    src={url}
-                    controls
-                    className="video-element"
-                    style={{ width: '100%', maxHeight: '400px' }}
-                >
-                    Ваш браузер не поддерживает воспроизведение видео.
-                </video>
-            )}
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  };
+
+  const formatTime = (time: number): string => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="video-player">
+      <video
+        ref={videoRef}
+        className="video-element"
+        playsInline
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+      />
+      <div className="video-controls">
+        <button 
+          className="play-pause-button" 
+          onClick={togglePlay}
+          aria-label={isPlaying ? 'Пауза' : 'Воспроизвести'}
+        >
+          {isPlaying ? '⏸' : '▶'}
+        </button>
+        <div className="time-control">
+          <span className="time-display">{formatTime(currentTime)}</span>
+          <input
+            type="range"
+            className="seek-bar"
+            value={currentTime}
+            min={0}
+            max={duration}
+            step={0.1}
+            onChange={handleSeek}
+          />
+          <span className="time-display">{formatTime(duration)}</span>
         </div>
-    );
+      </div>
+      {result.text && (
+        <div className="video-caption">
+          <p>{result.text}</p>
+          <div className="caption-time">
+            {formatTime(result.timecode_start)}
+            {result.timecode_end && ` - ${formatTime(result.timecode_end)}`}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default VideoPlayerComponent;

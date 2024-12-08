@@ -1,292 +1,303 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { uploadVideo, getTaskStatus } from '../api/config';
-import { TaskStatusResponse } from '../types';
+import React, { useState, useRef } from 'react';
+import { uploadVideo, checkTaskStatus } from '../api/api';
+import { UploadState } from '../types';
+import UploadNotification from './UploadNotification';
+import '../styles/UploadComponent.css';
+import { FiUploadCloud } from 'react-icons/fi';
 
-const UploadComponent: React.FC = () => {
-    const [file, setFile] = useState<File | null>(null);
-    const [uploading, setUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [error, setError] = useState<string | null>(null);
-    const [name, setName] = useState('');
-    const [description, setDescription] = useState('');
-    const [taskId, setTaskId] = useState<string | null>(null);
-    const [taskStatus, setTaskStatus] = useState<TaskStatusResponse | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const statusCheckInterval = useRef<NodeJS.Timeout>();
+interface UploadComponentProps {
+  onClose: () => void;
+  onUploadComplete: (videoId: string) => void;
+  onUploadStateChange: (state: Partial<UploadState>, notificationId?: string) => string;
+}
 
-    // Очистка формы
-    const resetForm = () => {
-        setFile(null);
-        setName('');
-        setDescription('');
-        setUploadProgress(0);
-        setTaskId(null);
-        setTaskStatus(null);
-        setUploading(false);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-    };
+const UploadComponent: React.FC<UploadComponentProps> = ({
+  onClose,
+  onUploadComplete,
+  onUploadStateChange
+}) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [metadata, setMetadata] = useState<{ title: string, description: string, tags: string[] }>({
+    title: '',
+    description: '',
+    tags: []
+  });
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Эффект для отслеживания состояния задачи
-    useEffect(() => {
-        if (taskId) {
-            const checkStatus = async () => {
-                try {
-                    const status = await getTaskStatus(taskId);
-                    setTaskStatus(status);
-                    
-                    if (status.status === 'completed' || status.status === 'failed') {
-                        if (statusCheckInterval.current) {
-                            clearInterval(statusCheckInterval.current);
-                        }
-                        
-                        if (status.status === 'failed') {
-                            setError('Ошибка при обработке видео: ' + status.error);
-                            setTaskId(null);
-                            setUploading(false);
-                        } else {
-                            // При успешном завершении
-                            setTimeout(() => {
-                                resetForm();
-                            }, 2000); // Показываем сообщение об успехе 2 секунды
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error checking task status:', error);
-                    setError('Ошибка при проверке статуса задачи');
-                    if (statusCheckInterval.current) {
-                        clearInterval(statusCheckInterval.current);
-                    }
-                    setTaskId(null);
-                    setUploading(false);
-                }
-            };
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
 
-            // Проверяем статус каждые 2 секунды
-            statusCheckInterval.current = setInterval(checkStatus, 2000);
-            checkStatus(); // Первая проверка сразу
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
 
-            return () => {
-                if (statusCheckInterval.current) {
-                    clearInterval(statusCheckInterval.current);
-                }
-            };
-        }
-    }, [taskId]);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setMetadata(prev => ({
+        ...prev,
+        title: file.name.split('.')[0]
+      }));
+    }
+  };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const selectedFile = e.target.files[0];
-            setFile(selectedFile);
-            // Автоматически устанавливаем имя файла как название
-            setName(selectedFile.name.split('.')[0]);
-            setError(null);
-        }
-    };
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setMetadata(prev => ({
+        ...prev,
+        title: file.name.split('.')[0]
+      }));
+    }
+  };
 
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
+  const handleMetadataChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setMetadata(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            const droppedFile = e.dataTransfer.files[0];
-            setFile(droppedFile);
-            // Автоматически устанавливаем имя файла как название
-            setName(droppedFile.name.split('.')[0]);
-            setError(null);
-        }
-    };
+  const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const tags = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+    setMetadata(prev => ({
+      ...prev,
+      tags
+    }));
+  };
 
-    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
-    };
+  const startUploadProcess = async () => {
+    if (!selectedFile || isUploading) return;
 
-    const handleUpload = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!file) {
-            setError('Пожалуйста, выберите файл для загрузки');
-            return;
-        }
-        if (!name.trim()) {
-            setError('Пожалуйста, укажите название видео');
-            return;
-        }
+    setIsUploading(true);
+    const videoName = metadata.title || selectedFile.name;
+    const notificationId = onUploadStateChange({
+      status: 'uploading',
+      uploadProgress: 0,
+      processingProgress: 0,
+      currentOperation: 'Starting upload...',
+      videoName,
+      error: undefined,
+      fragmentCount: 0
+    });
 
-        setUploading(true);
-        setError(null);
+    const formData = new FormData();
+    formData.append('video_file', selectedFile);
+    formData.append('name', metadata.title);
+    formData.append('description', metadata.description || '');
+    formData.append('tags', JSON.stringify(metadata.tags));
+
+    try {
+      const uploadResponse = await uploadVideo(formData, (progress) => {
+        onUploadStateChange({
+          status: 'uploading',
+          uploadProgress: progress,
+          fragmentCount: 0,
+          currentOperation: 'Uploading video...'
+        }, notificationId);
+      });
+
+      onUploadStateChange({
+        status: 'processing',
+        uploadProgress: 100,
+        processingProgress: 0,
+        currentOperation: 'Starting video processing...',
+        fragmentCount: 0
+      }, notificationId);
+
+      // Start polling for task status
+      const pollInterval = setInterval(async () => {
         try {
-            const formData = new FormData();
-            formData.append('video_file', file);
-            formData.append('name', name);
-            if (description.trim()) {
-                formData.append('description', description);
-            }
-
-            const response = await uploadVideo(formData, (progress) => {
-                setUploadProgress(progress);
-            });
-
-            // Получаем task_id из ответа и начинаем отслеживание
-            if (response.task_id) {
-                setTaskId(response.task_id);
-            } else {
-                throw new Error('Не получен ID задачи от сервера');
-            }
-
+          const taskStatus = await checkTaskStatus(uploadResponse.task_id);
+          
+          if (taskStatus.status === 'completed' && taskStatus.result) {
+            clearInterval(pollInterval);
+            onUploadStateChange({
+              status: 'completed',
+              processingProgress: 100,
+              currentOperation: taskStatus.current_operation,
+              fragmentCount: taskStatus.result.fragments_count,
+              videoId: taskStatus.result.video_id.toString(),
+              error: undefined
+            }, notificationId);
+            
+            onUploadComplete(taskStatus.result.video_id.toString());
+            onClose();
+          } else if (taskStatus.status === 'progress') {
+            onUploadStateChange({
+              status: 'processing',
+              processingProgress: taskStatus.progress,
+              currentOperation: taskStatus.current_operation,
+              fragmentCount: 0
+            }, notificationId);
+          } else if (taskStatus.status === 'failed') {
+            clearInterval(pollInterval);
+            onUploadStateChange({
+              status: 'failed',
+              error: taskStatus.error || 'Unknown error occurred',
+              currentOperation: taskStatus.current_operation
+            }, notificationId);
+          }
         } catch (error) {
-            console.error('Upload error:', error);
-            setError('Ошибка при загрузке видео');
-            setUploading(false);
-            setTaskId(null);
+          console.error('Error checking task status:', error);
+          // Don't clear interval or update state on temporary network errors
+          // Just skip this update and try again
         }
-    };
+      }, 1000);
 
-    const getStatusMessage = () => {
-        if (!taskStatus) return '';
-        
-        if (taskStatus.status === 'pending') {
-            return 'Ожидание обработки...';
-        } else if (taskStatus.status === 'processing') {
-            return `${taskStatus.current_operation || 'Обработка видео'} (${taskStatus.progress}%)`;
-        } else if (taskStatus.status === 'completed') {
-            return 'Видео успешно обработано!';
-        } else if (taskStatus.status === 'failed') {
-            return `Ошибка: ${taskStatus.error || 'Неизвестная ошибка'}`;
-        }
-        
-        return '';
-    };
+      return () => {
+        clearInterval(pollInterval);
+      };
+    } catch (error) {
+      onUploadStateChange({
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Upload failed'
+      }, notificationId);
+      setIsUploading(false);
+    }
+  };
 
-    // Определяем, заблокирована ли кнопка
-    const isButtonDisabled = !file || uploading;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    startUploadProcess();
+  };
 
-    // Определяем текст кнопки
-    const getButtonText = () => {
-        if (uploading) {
-            if (!taskId) {
-                return 'Загрузка файла...';
-            }
-            if (taskStatus?.status === 'pending') {
-                return 'Ожидание обработки...';
-            }
-            if (taskStatus?.status === 'processing') {
-                return 'Обработка видео...';
-            }
-            if (taskStatus?.status === 'completed') {
-                return 'Загрузка завершена!';
-            }
-            if (taskStatus?.status === 'failed') {
-                return 'Ошибка загрузки';
-            }
-            return 'Загрузка...';
-        }
-        return 'Загрузить видео';
-    };
+  const handleNotificationClose = () => {
+    setShowNotification(false);
+  };
 
-    return (
-        <div className="upload-component">
-            <form onSubmit={handleUpload}>
-                <div
-                    className="upload-area"
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
+  const handleNotificationClick = () => {
+    // onUploadStateChange({ status: 'completed' });
+  };
+
+  return (
+    <div className="upload-component">
+      <div className="modal-header">
+        <h2>Upload Video</h2>
+        <button className="close-button" onClick={onClose}>×</button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="upload-form">
+        <div className="upload-section">
+          <div 
+            className={`upload-area ${isDragOver ? 'drag-over' : ''} ${selectedFile ? 'has-file' : ''}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <input
+              type="file"
+              accept="video/*"
+              onChange={handleFileChange}
+              className="file-input"
+              ref={fileInputRef}
+            />
+            
+            {selectedFile ? (
+              <div className="selected-file">
+                <span className="file-name">{selectedFile.name}</span>
+                <button
+                  type="button"
+                  className="change-file"
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                    <label>
-                        <input
-                            type="file"
-                            onChange={handleFileChange}
-                            accept="video/*"
-                            ref={fileInputRef}
-                            className="file-input"
-                            disabled={uploading}
-                        />
-                        <div className="upload-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" y1="3" x2="12" y2="15" />
-                            </svg>
-                        </div>
-                        <span>Перетащите видео сюда или нажмите для выбора</span>
-                    </label>
-
-                    {file && (
-                        <div className="file-info">
-                            <span>{file.name}</span>
-                            <span className="file-size">
-                                {(file.size / (1024 * 1024)).toFixed(2)} MB
-                            </span>
-                        </div>
-                    )}
-                </div>
-
-                <div className="form-fields">
-                    <div className="form-group">
-                        <label htmlFor="name">Название видео</label>
-                        <input
-                            type="text"
-                            id="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Введите название видео"
-                            required
-                            disabled={uploading}
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="description">Описание</label>
-                        <textarea
-                            id="description"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Добавьте описание (необязательно)"
-                            disabled={uploading}
-                        />
-                    </div>
-                </div>
-
-                {error && <div className="error-message">{error}</div>}
-
-                {(uploading || taskStatus) && (
-                    <div className="upload-progress">
-                        {taskId ? (
-                            <div className="task-status">
-                                <div className="status-message">{getStatusMessage()}</div>
-                                {taskStatus && taskStatus.status === 'processing' && (
-                                    <div className="progress-bar-wrapper">
-                                        <div 
-                                            className="progress-bar"
-                                            style={{ width: `${taskStatus.progress}%` }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <>
-                                <div 
-                                    className="progress-bar"
-                                    style={{ width: `${uploadProgress}%` }}
-                                />
-                                <span className="progress-text">{uploadProgress}% загружено</span>
-                            </>
-                        )}
-                    </div>
-                )}
-
-                <button 
-                    type="submit" 
-                    disabled={isButtonDisabled}
-                    className={`upload-button ${uploading ? 'uploading' : ''}`}
-                >
-                    {getButtonText()}
-                    {uploading && <span className="loading-spinner"></span>}
+                  Change File
                 </button>
-            </form>
+              </div>
+            ) : (
+              <div className="upload-placeholder">
+                <FiUploadCloud className="upload-icon" />
+                <p>Drag and drop your video here</p>
+                <p>or click to browse</p>
+              </div>
+            )}
+          </div>
         </div>
-    );
+
+        <div className="metadata-section">
+          <div className="form-group">
+            <label htmlFor="title">Title</label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              value={metadata.title}
+              onChange={handleMetadataChange}
+              className="form-input"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="description">Description</label>
+            <textarea
+              id="description"
+              name="description"
+              value={metadata.description}
+              onChange={handleMetadataChange}
+              className="form-input"
+              rows={4}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="tags">Tags (comma-separated)</label>
+            <input
+              type="text"
+              id="tags"
+              name="tags"
+              value={metadata.tags.join(', ')}
+              onChange={handleTagsChange}
+              className="form-input"
+              placeholder="Enter tags separated by commas"
+            />
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button
+            type="button"
+            className="cancel-button"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="submit-button"
+            disabled={!selectedFile || isUploading}
+          >
+            {isUploading ? 'Uploading...' : 'Upload'}
+          </button>
+        </div>
+      </form>
+
+      {showNotification && (
+        <UploadNotification
+          uploadProgress={0}
+          processingProgress={0}
+          currentOperation=""
+          status="uploading"
+          error=""
+          fragmentCount={0}
+          videoName={selectedFile?.name || "Unknown file"}
+          onClose={handleNotificationClose}
+          onClick={handleNotificationClick}
+        />
+      )}
+    </div>
+  );
 };
 
 export default UploadComponent;

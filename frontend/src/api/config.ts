@@ -1,16 +1,29 @@
 import axios, { AxiosError } from 'axios';
 import { 
     TaskResponse, 
-    TaskStatusResponse, 
+    TaskStatus, 
     VideoFragmentsResponse, 
     UploadResponse 
 } from '../types';
 
-const API_BASE_URL = 'http://localhost:8000';
-const API_PREFIX = '/api/v1';
+// API URL для разработки
+export const API_URL = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1`;
+
+// Максимальный размер загружаемого файла (в байтах)
+export const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+
+// Поддерживаемые форматы видео
+export const SUPPORTED_VIDEO_FORMATS = [
+  'video/mp4',
+  'video/webm',
+  'video/ogg'
+];
+
+// Таймаут для запросов (в миллисекундах)
+export const REQUEST_TIMEOUT = 30000; // 30 секунд
 
 const api = axios.create({
-    baseURL: `${API_BASE_URL}${API_PREFIX}`,
+    baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -59,16 +72,17 @@ export const searchVideos = async (
     }
 };
 
-export const getTaskStatus = async (taskId: string): Promise<TaskStatusResponse> => {
+export const getTaskStatus = async (taskId: string): Promise<TaskStatus> => {
     try {
-        const response = await api.get<TaskStatusResponse>(`/tasks/${taskId}`);
+        const response = await axios.get<TaskStatus>(`${API_URL}/task/${taskId}/status`);
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 404) {
             return {
                 status: 'pending',
                 progress: 0,
-                current_operation: 'Task queued'
+                current_operation: 'Task queued',
+                error: undefined
             };
         }
         throw handleApiError(error, 'Failed to get task status');

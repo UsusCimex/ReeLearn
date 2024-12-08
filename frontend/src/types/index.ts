@@ -1,27 +1,41 @@
+// Frontend types (camelCase)
 export interface TaskResponse {
-    task_id: string;
-}
-
-export interface TaskStatusResponse {
-    status: 'pending' | 'processing' | 'completed' | 'failed';
-    progress: number;
-    current_operation?: string;
-    error?: string;
-    result?: any;
-}
-
-export interface SearchResult {
-    video_name: string;
-    video_description: string;
-    text: string;
-    tags: string[];
-    timecode_start: number;
-    timecode_end: number;
-    presigned_url: string;
+  taskId: string;
 }
 
 export interface VideoMetadata {
-    name: string;
-    description: string;
-    tags?: string[];
+  videoName: string;
+  videoDescription: string;
+  tags: string[];
+}
+
+export interface SearchResult extends VideoMetadata {
+  timecodeStart: number;
+  timecodeEnd?: number;
+  text?: string;
+  confidence?: number;
+  presignedUrl?: string;
+}
+
+export interface TaskStatusResponse {
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  result?: SearchResult[];
+  error?: string;
+  progress?: number;
+}
+
+export interface UploadResponse {
+  taskId: string;
+  status: string;
+  message?: string;
+}
+
+export interface AxiosUploadProgress {
+  loaded: number;
+  total?: number;
+  progress?: number;
+  bytes: number;
+  rate?: number;
+  estimated?: number;
+  upload: true;
 }
