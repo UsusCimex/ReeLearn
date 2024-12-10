@@ -8,6 +8,13 @@ from nltk.tokenize.punkt import PunktSentenceTokenizer
 import numpy as np
 from core.logger import logger
 from langdetect.lang_detect_exception import LangDetectException
+import asyncio
+import torch
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from services.processing_service import extract_subtitles, optimize_fragments, process_and_upload_fragment
+import os
+import shutil
 
 # Download required NLTK data for multiple languages
 SUPPORTED_LANGUAGES = {
@@ -58,6 +65,9 @@ class VideoFragment:
     sentences: List[str]
     language: str
     tags: List[str] = None
+    s3_url: str = ""
+    speech_confidence: float = 1.0
+    no_speech_prob: float = 0.0
 
 class SmartVideoFragmenter:
     def __init__(
@@ -131,188 +141,179 @@ class SmartVideoFragmenter:
         return intersection / union if union > 0 else 0
 
     def _adjust_fragment_boundaries(
-        self,
-        segments: List[SubtitleSegment]
-    ) -> List[VideoFragment]:
-        """Корректирует границы фрагментов для достижения оптимальной длительности."""
-        fragments = []
-        current_segment = segments[0]
-        current_text = [current_segment.text]
-        current_sentences = self._split_into_sentences(
-            current_segment.text,
-            current_segment.language
-        )
-        current_start_time = current_segment.start_time
-
-        def create_fragment(end_time):
-            return VideoFragment(
-                start_time=current_start_time,
-                end_time=end_time,
-                text=" ".join(current_text),
-                sentences=current_sentences.copy(),
-                language=current_segment.language
-            )
-
-        for next_segment in segments[1:]:
-            next_sentences = self._split_into_sentences(next_segment.text, next_segment.language)
-            next_duration = next_segment.end_time - current_start_time
+            self,
+            segments: List[SubtitleSegment]
+        ) -> List[SubtitleSegment]:
+        """
+        Корректирует границы фрагментов для достижения оптимальной длительности.
+        
+        Args:
+            segments: Список исходных сегментов
             
-            # Создаем новый фрагмент если:
-            # 1. Изменился язык
-            # 2. Превышен лимит предложений
-            # 3. Превышена оптимальная длительность И текущее предложение завершено
-            if (current_segment.language != next_segment.language or 
-                len(current_sentences) >= self.max_sentences or 
-                (next_duration > self.optimal_duration and 
-                 not (current_text[-1].endswith('...') or 
-                      next_segment.text.startswith('...')))):
+        Returns:
+            Список оптимизированных сегментов
+        """
+        if not segments:
+            return []
+            
+        optimized = []
+        current_group = {
+            'segments': [segments[0]],
+            'start': segments[0].start_time,
+            'end': segments[0].end_time,
+            'language': segments[0].language
+        }
+        
+        for next_seg in segments[1:]:
+            # Вычисляем длительность если добавим следующий сегмент
+            potential_duration = next_seg.end_time - current_group['start']
+            current_duration = current_group['end'] - current_group['start']
+            gap_duration = next_seg.start_time - current_group['end']
+            
+            # Проверяем условия для объединения
+            can_merge = (
+                current_group['language'] == next_seg.language and  # Один язык
+                gap_duration <= 0.5 and                            # Небольшой разрыв
+                potential_duration <= self.optimal_duration * 1.2   # Не сильно превышает оптимальную длительность
+            )
+            
+            # Если текущая группа слишком короткая и можно объединить
+            if current_duration < self.optimal_duration and can_merge:
+                current_group['segments'].append(next_seg)
+                current_group['end'] = next_seg.end_time
+            else:
+                # Создаем новый сегмент из текущей группы
+                combined_text = ' '.join(seg.text for seg in current_group['segments'])
+                optimized.append(SubtitleSegment(
+                    start_time=current_group['start'],
+                    end_time=current_group['end'],
+                    text=combined_text,
+                    language=current_group['language']
+                ))
                 
-                fragments.append(create_fragment(next_segment.start_time))
-                current_start_time = next_segment.start_time
-                current_segment = next_segment
-                current_text = [current_segment.text]
-                current_sentences = next_sentences
-                continue
+                # Начинаем новую группу
+                current_group = {
+                    'segments': [next_seg],
+                    'start': next_seg.start_time,
+                    'end': next_seg.end_time,
+                    'language': next_seg.language
+                }
+        
+        # Добавляем последнюю группу
+        if current_group['segments']:
+            combined_text = ' '.join(seg.text for seg in current_group['segments'])
+            optimized.append(SubtitleSegment(
+                start_time=current_group['start'],
+                end_time=current_group['end'],
+                text=combined_text,
+                language=current_group['language']
+            ))
+        
+        return optimized
 
-            # Продолжаем накапливать текст
-            current_text.append(next_segment.text)
-            current_sentences.extend(next_sentences)
-            current_segment = next_segment
-
-        # Добавляем последний фрагмент
-        if current_text:
-            fragments.append(create_fragment(segments[-1].end_time))
-
-        return fragments
-
-    def process_subtitles(
-        self,
-        subtitles: List[Dict[str, float]]
-    ) -> List[VideoFragment]:
+    async def process_subtitles(
+            self,
+            subtitles: List[SubtitleSegment]
+        ) -> List[VideoFragment]:
         """
         Основной метод обработки субтитров.
         
         Args:
-            subtitles: Список словарей с ключами 'start', 'end', 'text'
+            subtitles: Список объектов SubtitleSegment
             
         Returns:
             Список VideoFragment с оптимизированными границами
         """
-        if not subtitles:
-            return []
-
-        # Преобразуем входные данные в SubtitleSegment и определяем язык
-        segments = []
-        for sub in subtitles:
-            # Пропускаем пустые субтитры
-            if not sub['text'].strip():
-                continue
-                
-            # Определяем язык для каждого сегмента
-            language = self._detect_language(sub['text'])
-            
-            # Разбиваем текст на предложения
-            sentences = self._split_into_sentences(sub['text'], language)
-            
-            # Если нет предложений, используем весь текст как одно предложение
-            if not sentences:
-                sentences = [sub['text']]
-            
-            # Вычисляем среднюю длительность на символ
-            duration = sub['end'] - sub['start']
-            chars_per_second = len(sub['text']) / duration if duration > 0 else 1.0
-            
-            # Если сегмент слишком длинный, разбиваем его на части
-            if duration > self.max_duration:
-                current_start = sub['start']
-                current_text = []
-                current_chars = 0
-                
-                for sentence in sentences:
-                    sentence_chars = len(sentence)
-                    sentence_duration = sentence_chars / chars_per_second
-                    
-                    # Если добавление предложения превысит оптимальную длительность
-                    # и уже есть накопленный текст, создаем новый сегмент
-                    if current_text and (current_chars + sentence_chars) / chars_per_second > self.optimal_duration:
-                        text = " ".join(current_text)
-                        segment_duration = current_chars / chars_per_second
-                        segments.append(SubtitleSegment(
-                            start_time=current_start,
-                            end_time=current_start + segment_duration,
-                            text=text,
-                            language=language
-                        ))
-                        current_start = current_start + segment_duration
-                        current_text = [sentence]
-                        current_chars = sentence_chars
-                    else:
-                        current_text.append(sentence)
-                        current_chars += sentence_chars
-                
-                # Добавляем последний накопленный текст
-                if current_text:
-                    segments.append(SubtitleSegment(
-                        start_time=current_start,
-                        end_time=sub['end'],
-                        text=" ".join(current_text),
-                        language=language
-                    ))
-            else:
-                segments.append(SubtitleSegment(
-                    start_time=sub['start'],
-                    end_time=sub['end'],
-                    text=sub['text'],
-                    language=language
-                ))
-
+        # Фильтрация пустых сегментов
+        segments = [sub for sub in subtitles if sub.text.strip()]
         if not segments:
             return []
-
-        # Объединяем короткие сегменты
-        merged_segments = []
-        current = segments[0]
-        
-        for next_seg in segments[1:]:
-            # Проверяем возможность объединения
-            merged_duration = next_seg.end_time - current.start_time
-            gap_duration = next_seg.start_time - current.end_time
             
-            can_merge = (
-                current.language == next_seg.language and  # Один язык
-                merged_duration <= self.max_duration and   # Не превышает максимальную длительность
-                gap_duration <= 0.1 and                    # Нет большого разрыва между сегментами
-                len(self._split_into_sentences(current.text + " " + next_seg.text, current.language)) <= self.max_sentences  # Не превышает лимит предложений
-            )
-            
-            if can_merge:
-                # Объединяем сегменты
-                current = SubtitleSegment(
-                    start_time=current.start_time,
-                    end_time=next_seg.end_time,
-                    text=f"{current.text} {next_seg.text}",
-                    language=current.language
-                )
-            else:
-                merged_segments.append(current)
-                current = next_seg
+        # Оптимизация границ фрагментов
+        optimized_segments = self._adjust_fragment_boundaries(segments)
         
-        # Добавляем последний сегмент
-        merged_segments.append(current)
-
-        # Преобразуем в VideoFragment
+        # Создание фрагментов
         fragments = []
-        for segment in merged_segments:
+        for segment in optimized_segments:
+            # Разбиение текста на предложения
             sentences = self._split_into_sentences(segment.text, segment.language)
-            if not sentences:
-                sentences = [segment.text]
             
-            fragments.append(VideoFragment(
+            # Создание фрагмента
+            fragment = VideoFragment(
                 start_time=segment.start_time,
                 end_time=segment.end_time,
                 text=segment.text,
                 sentences=sentences,
-                language=segment.language
-            ))
-
+                language=segment.language,
+                tags=[]  # TODO: Добавить извлечение тегов
+            )
+            fragments.append(fragment)
+            
         return fragments
+
+    async def process_video(self, video_path: str) -> List[VideoFragment]:
+        """
+        Process video file and extract fragments with subtitles.
+        
+        Args:
+            video_path (str): Path to video file
+            
+        Returns:
+            List[VideoFragment]: List of video fragments with subtitles
+        """
+        try:
+            # Extract subtitles using ProcessingService
+            raw_fragments = await extract_subtitles(video_path)
+            
+            # Convert raw fragments to SubtitleSegments
+            segments = []
+            for fragment in raw_fragments:
+                # Detect language
+                language = self._detect_language(fragment['text'])
+                
+                segment = SubtitleSegment(
+                    start_time=fragment['start'],
+                    end_time=fragment['end'],
+                    text=fragment['text'],
+                    language=language
+                )
+                segments.append(segment)
+            
+            # Process segments into optimized fragments
+            video_fragments = await self.process_subtitles(segments)
+            
+            # Create temporary directory for fragment processing
+            temp_dir = os.path.join(os.path.dirname(video_path), 'temp_fragments')
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            try:
+                # Process each fragment
+                for fragment in video_fragments:
+                    # Cut and upload fragment
+                    s3_url = await process_and_upload_fragment(
+                        video_path,
+                        temp_dir,
+                        {
+                            'start': fragment.start_time,
+                            'end': fragment.end_time,
+                            'text': fragment.text
+                        }
+                    )
+                    
+                    if s3_url:
+                        fragment.s3_url = s3_url
+                    else:
+                        logger.error(f"Failed to process fragment: {fragment.text[:50]}...")
+                
+                return video_fragments
+                
+            finally:
+                # Cleanup temporary directory
+                try:
+                    shutil.rmtree(temp_dir)
+                except Exception as e:
+                    logger.warning(f"Failed to remove temporary directory: {e}")
+            
+        except Exception as e:
+            logger.error(f"Error processing video: {str(e)}")
+            raise

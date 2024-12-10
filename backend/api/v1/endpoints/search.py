@@ -17,7 +17,7 @@ async def search_videos_endpoint(
     session: AsyncSession = Depends(get_db)
 ):
     task = search_task.delay(query, exact, tags)
-    return {"taskId": task.id}
+    return {"task_id": task.id}
 
 @router.get("/results/{task_id}", response_model=SearchResultResponse)
 async def get_search_results(task_id: str):

@@ -75,9 +75,9 @@ async def upload_video(
         logger.info(f"Celery task started with ID: {task.id}")
         
         return UploadResponse(
-            videoId=str(video.id),
+            video_id=str(video.id),
             status=UploadStatus.UPLOADING,
-            taskId=task.id
+            task_id=task.id
         )
     except Exception as e:
         logger.error(f"Database/Celery error: {str(e)}")

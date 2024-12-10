@@ -20,13 +20,13 @@ async def get_task_status(task_id: str):
             response = {
                 'status': TaskStatus.PENDING,
                 'progress': 0,
-                'currentOperation': 'Задача в очереди на выполнение'
+                'current_operation': 'Задача в очереди на выполнение'
             }
         elif task.state == 'PROGRESS':
             response = {
                 'status': TaskStatus.PROGRESS,
                 'progress': task.info.get('progress', 0),
-                'currentOperation': task.info.get('currentOperation', 'Обработка...')
+                'current_operation': task.info.get('current_operation', 'Обработка...')
             }
         elif task.state == 'SUCCESS':
             if 'search_task' in task_type:
@@ -35,7 +35,7 @@ async def get_task_status(task_id: str):
                 response = {
                     'status': TaskStatus.COMPLETED,
                     'progress': 100,
-                    'currentOperation': 'Поиск завершен',
+                    'current_operation': 'Поиск завершен',
                     'result': result.get('results', []) if isinstance(result, dict) else result
                 }
             else:
@@ -43,7 +43,7 @@ async def get_task_status(task_id: str):
                 response = {
                     'status': TaskStatus.COMPLETED,
                     'progress': 100,
-                    'currentOperation': 'Обработка завершена',
+                    'current_operation': 'Обработка завершена',
                     'result': task.result
                 }
         elif task.state == 'FAILURE':
@@ -56,7 +56,7 @@ async def get_task_status(task_id: str):
             response = {
                 'status': TaskStatus.FAILED,
                 'progress': 0,
-                'currentOperation': 'Ошибка',
+                'current_operation': 'Ошибка',
                 'error': error_msg
             }
         else:
@@ -65,7 +65,7 @@ async def get_task_status(task_id: str):
             response = {
                 'status': TaskStatus.PROGRESS,
                 'progress': info.get('progress', 0),
-                'currentOperation': info.get('currentOperation', f'Состояние: {task.state}')
+                'current_operation': info.get('current_operation', f'Состояние: {task.state}')
             }
         
         return response

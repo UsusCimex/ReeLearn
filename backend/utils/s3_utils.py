@@ -181,11 +181,11 @@ async def generate_presigned_url(s3_url: str, expiration=3600):
             # Generate presigned URL using internal endpoint
             presigned_url = await s3_client.generate_presigned_url(
                 'get_object',
-                Params({
+                {
                     'Bucket': bucket_name,
                     'Key': key,
                     'ResponseContentType': 'video/mp4'  # Set proper content type
-                }),
+                },
                 ExpiresIn=expiration
             )
             
