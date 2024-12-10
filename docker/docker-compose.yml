@@ -83,6 +83,9 @@ services:
     environment:
       MINIO_ACCESS_KEY: ${S3_ACCESS_KEY}
       MINIO_SECRET_KEY: ${S3_SECRET_KEY}
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
+      MINIO_CORS_ALLOW_ORIGINS: "*"
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
     ports:
       - "9000:9000"  # API
       - "9001:9001"  # Консоль

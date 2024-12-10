@@ -1,0 +1,171 @@
+.upload-notification {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 16px;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+}
+
+.upload-notification:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.upload-notification.uploading {
+  border-left-color: #1a73e8;
+}
+
+.upload-notification.processing {
+  border-left-color: #f39c12;
+}
+
+.upload-notification.completed {
+  border-left-color: #2ecc71;
+  animation: pulse 2s infinite;
+}
+
+.upload-notification.failed {
+  border-left-color: #e74c3c;
+}
+
+.upload-notification .notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.upload-notification .notification-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  margin: 0;
+  padding-right: 24px;
+  word-break: break-word;
+}
+
+.upload-notification .close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  transition: background-color 0.2s;
+}
+
+.upload-notification .close-button:hover {
+  background-color: #f1f3f4;
+  color: #333;
+}
+
+.upload-notification .progress-container {
+  margin-bottom: 12px;
+}
+
+.upload-notification .progress-bar {
+  width: 100%;
+  height: 4px;
+  background-color: #e8eaed;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.upload-notification .progress-fill {
+  height: 100%;
+  background-color: #1a73e8;
+  transition: width 0.3s ease;
+}
+
+.upload-notification .notification-status {
+  font-size: 14px;
+  color: #5f6368;
+}
+
+.upload-notification .notification-error {
+  color: #d93025;
+}
+
+.upload-notification .notification-success {
+  color: #1e8e3e;
+}
+
+.upload-notification .notification-action {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.upload-notification .view-fragments-button {
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.upload-notification .view-fragments-button:hover {
+  background-color: #1557b0;
+}
+
+.upload-notification.completed:hover:after {
+  content: "Click to view fragments";
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 0.8em;
+  color: #27ae60;
+  font-weight: 500;
+}
+
+.notifications-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 320px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  padding: 8px;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.1);
+  }
+  50% {
+    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);
+  }
+  100% {
+    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.1);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

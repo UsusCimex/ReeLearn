@@ -155,6 +155,7 @@ async def ensure_bucket_exists():
                 Bucket=settings.S3_BUCKET_NAME,
                 Policy=json.dumps(policy)
             )
+
             logger.info(f"Set public read policy for bucket: {settings.S3_BUCKET_NAME}")
 
         except Exception as e:
@@ -163,28 +164,32 @@ async def ensure_bucket_exists():
 
 async def generate_presigned_url(s3_url: str, expiration=3600):
     """
-    Генерирует presigned URL для доступа к объекту в S3.
+    Generates a presigned URL for accessing an object in S3.
     
-    :param s3_url: URL объекта в S3
-    :param expiration: Время жизни URL в секундах
-    :return: Публичный presigned URL
+    :param s3_url: S3 object URL
+    :param expiration: URL expiration time in seconds
+    :return: Public presigned URL
     """
     parsed_url = urlparse(s3_url)
     path_parts = parsed_url.path.lstrip('/').split('/', 1)
     if len(path_parts) != 2:
-        raise ValueError("Неверный формат S3 URL")
+        raise ValueError("Invalid S3 URL format")
     bucket_name, key = path_parts
 
     async with get_s3_client() as s3_client:
         try:
-            # Генерируем presigned URL с использованием внутреннего эндпоинта
+            # Generate presigned URL using internal endpoint
             presigned_url = await s3_client.generate_presigned_url(
                 'get_object',
-                Params={'Bucket': bucket_name, 'Key': key},
+                Params({
+                    'Bucket': bucket_name,
+                    'Key': key,
+                    'ResponseContentType': 'video/mp4'  # Set proper content type
+                }),
                 ExpiresIn=expiration
             )
             
-            # Заменяем внутренний эндпоинт на публичный в сгенерированном URL
+            # Replace internal endpoint with public endpoint in generated URL
             if settings.S3_ENDPOINT_URL and settings.S3_PUBLIC_URL:
                 presigned_url = presigned_url.replace(
                     settings.S3_ENDPOINT_URL,

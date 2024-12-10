@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.repositories.video_repository import VideoRepository
 from db.dependencies import get_db
-from schemas.upload import UploadResponse
+from schemas.upload import UploadResponse, UploadStatus
 from worker.tasks.process_video_task import process_video_task
 from core.config import settings
 from typing import Optional
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.post("", response_model=UploadResponse)
+@router.post("/upload", response_model=UploadResponse)
 async def upload_video(
     video_file: UploadFile = File(...),
     name: str = Form(...),
@@ -61,7 +61,7 @@ async def upload_video(
             name=name, 
             description=description, 
             s3_url="",  # Will be updated by the task
-            status="uploading"  # Initial status
+            status=UploadStatus.UPLOADING  # Initial status
         )
         logger.info(f"Database entry created with ID: {video.id}")
         
@@ -74,7 +74,11 @@ async def upload_video(
         )
         logger.info(f"Celery task started with ID: {task.id}")
         
-        return UploadResponse(video_id=video.id, status="uploading", task_id=task.id)
+        return UploadResponse(
+            videoId=str(video.id),
+            status=UploadStatus.UPLOADING,
+            taskId=task.id
+        )
     except Exception as e:
         logger.error(f"Database/Celery error: {str(e)}")
         # Удаление временного файла в случае ошибки

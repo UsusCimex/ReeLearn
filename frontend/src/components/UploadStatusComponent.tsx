@@ -1,65 +1,114 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getTaskStatus } from '../api/config';
-import { TaskStatusResponse } from '../types';
+import { get_task_status } from '../api/config';
+import { taskStatus, taskStatusResponse } from '../types';
+import '../styles/UploadStatusComponent.css';
 
-const UploadStatusComponent: React.FC = () => {
-    const { taskId } = useParams<{ taskId: string }>();
-    const [status, setStatus] = useState<TaskStatusResponse | null>(null);
-    const navigate = useNavigate();
+interface upload_status_component_props {
+    status: taskStatusResponse;
+}
 
-    useEffect(() => {
-        if (!taskId) return;
+const UploadStatusComponent: React.FC<upload_status_component_props> = ({ status }) => {
+    const get_progress_percentage = () => {
+        if (status.progress !== undefined) {
+            return Math.round(status.progress * 100);
+        }
+        return 0;
+    };
 
-        const pollStatus = async () => {
-            try {
-                const response = await getTaskStatus(taskId);
-                setStatus(response);
+    const get_status_text = () => {
+        switch (status.status) {
+            case taskStatus.PENDING:
+                return 'Waiting to start...';
+            case taskStatus.PROGRESS:
+                return status.current_operation || 'Processing...';
+            case taskStatus.COMPLETED:
+                return 'Complete!';
+            case taskStatus.FAILED:
+                return status.error || 'Failed';
+            default:
+                return 'Unknown status';
+        }
+    };
 
-                if (['completed', 'failed'].includes(response.status)) {
-                    return;
-                }
-            } catch (error) {
-                console.error('Error fetching task status:', error);
-                setStatus(prev => prev ? {
-                    ...prev,
-                    status: 'failed',
-                    error: 'Failed to fetch task status'
-                } : null);
-            }
-        };
-
-        const interval = setInterval(pollStatus, 2000);
-        pollStatus();
-
-        return () => clearInterval(interval);
-    }, [taskId]);
-
-    if (!status) {
-        return <div className="status-container">Loading task status...</div>;
-    }
+    const is_in_progress = status.status === taskStatus.PROGRESS || status.status === taskStatus.PENDING;
+    const progress_percentage = get_progress_percentage();
+    const status_text = get_status_text();
 
     return (
-        <div className="status-container">
-            <h2>Upload Status</h2>
-            <div className="status-info">
-                <p>Status: {status.status}</p>
-                <p>Progress: {status.progress}%</p>
-                {status.current_operation && (
-                    <p>Current Operation: {status.current_operation}</p>
-                )}
-                {status.error && (
-                    <p className="error">Error: {status.error}</p>
-                )}
-            </div>
-            {status.status === 'completed' && (
-                <button onClick={() => navigate('/')}>Upload Another Video</button>
+        <div className={`upload-status ${status.status}`}>
+            {is_in_progress && (
+                <div className="progress-container">
+                    <div className="progress-bar">
+                        <div
+                            className="progress-fill"
+                            style={{ width: `${progress_percentage}%` }}
+                        />
+                    </div>
+                    <div className="progress-text">
+                        {status_text}
+                        <span className="progress-percentage">
+                            {progress_percentage}%
+                        </span>
+                    </div>
+                </div>
             )}
+
+            {status.status === 'completed' && (
+                <div className="status-message success">
+                    {status_text}
+                </div>
+            )}
+
             {status.status === 'failed' && (
-                <button onClick={() => navigate('/')}>Try Again</button>
+                <div className="status-message error">
+                    {status_text}
+                </div>
             )}
         </div>
     );
 };
 
-export default UploadStatusComponent;
+const UploadStatusContainer: React.FC = () => {
+    const { task_id } = useParams<{ task_id: string }>();
+    const navigate = useNavigate();
+    const [status, setStatus] = useState<taskStatusResponse | null>(null);
+
+    useEffect(() => {
+        if (!task_id) {
+            navigate('/');
+            return;
+        }
+
+        const poll_status = async () => {
+            try {
+                const response = await get_task_status(task_id);
+                setStatus(response);
+
+                if (response.status === 'failed') {
+                    // Оставляем статус ошибки для отображения
+                } else if (response.status !== 'completed') {
+                    // Продолжаем опрос только для pending и processing
+                    setTimeout(poll_status, 2000);
+                }
+            } catch (error) {
+                console.error('Error fetching task status:', error);
+                setStatus((prev: taskStatusResponse | null) => prev ? {
+                    ...prev,
+                    status: taskStatus.FAILED,
+                    error: 'Failed to fetch task status'
+                } : null);
+            }
+        };
+
+        poll_status();
+    }, [task_id, navigate]);
+
+    if (!status) {
+        return <div className="loading">Loading...</div>;
+    }
+
+    return <UploadStatusComponent status={status} />;
+};
+
+export default UploadStatusContainer;

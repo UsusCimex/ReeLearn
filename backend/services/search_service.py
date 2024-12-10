@@ -159,12 +159,13 @@ async def assemble_search_results(hits, fragments, results_per_video=2):
             logger.info(f"Generated presigned URL for fragment {fragment_id}")
 
             result = {
-                'presigned_url': presigned_url,
+                'id': fragment.id,
+                'video_id': video.id,
                 'video_name': video.name,
-                'video_description': video.description,
                 'timecode_start': fragment.timecode_start,
                 'timecode_end': fragment.timecode_end,
                 'text': hit['_source']['text'],
+                's3_url': presigned_url,
                 'tags': hit['_source']['tags'],
                 'score': hit['_score']
             }
