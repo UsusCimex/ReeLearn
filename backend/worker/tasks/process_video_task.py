@@ -40,7 +40,7 @@ def _process_video(video_id: int, temp_file_path: str, original_filename: str):
                 video_repo.save_fragments(video_id, fragments)
                 video_repo.update_video_status(video_id, UploadStatus.COMPLETED)
         
-        return {"status": "success", "videoId": video_id}
+        return {"status": "success", "video_id": video_id}
     except Exception as e:
         logger.error(f"Error during video processing: {str(e)}")
         # В случае ошибки обновляем статус видео
