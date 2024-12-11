@@ -24,16 +24,12 @@ class Settings(BaseSettings):
     
     @property
     def DATABASE_URL(self) -> str:
-        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-
-    @property
-    def SYNC_DATABASE_URL(self) -> str:
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     # Video Processing Settings
-    VIDEO_MIN_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MIN_FRAGMENT_DURATION", "3.0"))
-    VIDEO_MAX_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MAX_FRAGMENT_DURATION", "7.0"))
-    VIDEO_OPTIMAL_DURATION: float = float(os.getenv("VIDEO_OPTIMAL_DURATION", "5.0"))
+    VIDEO_MIN_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MIN_FRAGMENT_DURATION", "3"))
+    VIDEO_MAX_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MAX_FRAGMENT_DURATION", "7"))
+    VIDEO_OPTIMAL_DURATION: float = float(os.getenv("VIDEO_OPTIMAL_DURATION", "4.5"))
     VIDEO_DEFAULT_LANGUAGE: str = os.getenv("VIDEO_DEFAULT_LANGUAGE", "en")
     VIDEO_MAX_SENTENCES_PER_FRAGMENT: int = int(os.getenv("VIDEO_MAX_SENTENCES_PER_FRAGMENT", "2"))
 
@@ -45,14 +41,14 @@ class Settings(BaseSettings):
     ELASTICSEARCH_TIMEOUT: int = int(os.getenv("ELASTICSEARCH_TIMEOUT", "30"))
 
     # S3 (MinIO) settings
-    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")  # Внутренний URL для сервисов
-    S3_PUBLIC_URL: str = os.getenv("S3_PUBLIC_URL", "http://localhost:9000")  # Публичный URL для клиентов
+    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://minio:9000")
+    S3_PUBLIC_URL: str = os.getenv("S3_PUBLIC_URL", "http://localhost:9000")
     S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
     S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minioadmin")
     S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "videos")
 
     # FFmpeg Settings
-    FFMPEG_THREADS: int = int(os.getenv("FFMPEG_THREADS", "0"))  # 0 means auto
+    FFMPEG_THREADS: int = int(os.getenv("FFMPEG_THREADS", "0"))
     FFMPEG_PRESET: str = os.getenv("FFMPEG_PRESET", "medium")
     FFMPEG_CRF: int = int(os.getenv("FFMPEG_CRF", "23"))
 

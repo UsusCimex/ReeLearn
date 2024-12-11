@@ -7,7 +7,7 @@ from worker.tasks.search_task import search_task
 router = APIRouter()
 
 @router.get("/{task_id}", response_model=TaskStatusResponse)
-async def get_task_status(task_id: str):
+def get_task_status(task_id: str):
     """Получение статуса любой задачи по её ID."""
     try:
         task = AsyncResult(task_id)

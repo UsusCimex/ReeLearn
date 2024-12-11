@@ -1,90 +1,76 @@
-import asyncio
 import sys
 import os
-import logging
+from pathlib import Path
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, 
-                   format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Add the parent directory to the Python path so we can import our modules
+sys.path.append(str(Path(__file__).parent.parent))
 
-# Добавляем путь к backend в PYTHONPATH
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from db.models.fragments import Fragment
-from db.models.videos import Video
 from utils.elasticsearch_utils import get_elasticsearch, create_reelearn_index
-from core.config import settings
-import elasticsearch
-from db.base import Base
+from db.base import Session
+from db.models.fragments import Fragment
+from sqlalchemy import select
+from core.logger import logger
 
-# Создание фабрики сессий
-engine = create_engine(settings.SYNC_DATABASE_URL)
-Base.metadata.create_all(bind=engine)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-async def reindex_all_fragments():
-    """Переиндексирует все фрагменты из базы данных в Elasticsearch."""
-    session = SessionLocal()
+def reindex_all_fragments():
+    """Переиндексирует все фрагменты в Elasticsearch."""
     try:
-        # Проверяем подключение к Elasticsearch
-        logger.info("Проверка подключения к Elasticsearch...")
-        async with get_elasticsearch() as es:
-            if not await es.ping():
-                logger.error("Не удалось подключиться к Elasticsearch")
-                return
-            logger.info("Подключение к Elasticsearch успешно")
+        # Получаем все фрагменты из базы данных
+        with Session() as session:
+            fragments = session.query(Fragment).all()
+            logger.info(f"Found {len(fragments)} fragments in database")
 
-            # Создаем индекс с правильным маппингом
-            logger.info("Создание индекса...")
-            try:
-                await create_reelearn_index(delete_if_exist=True)
-                logger.info("Индекс создан успешно")
-            except elasticsearch.ElasticsearchException as e:
-                logger.error(f"Ошибка при создании индекса: {e}")
-                return
-            
-            # Получаем все фрагменты
-            try:
-                fragments = session.query(Fragment).all()
-                logger.info(f"Найдено {len(fragments)} фрагментов для индексации")
-                
-                # Индексируем каждый фрагмент
-                for i, fragment in enumerate(fragments, 1):
-                    try:
-                        # Индексируем фрагмент
-                        await es.index(
-                            index=settings.ELASTICSEARCH_INDEX_NAME,
-                            id=str(fragment.id),
-                            body={
-                                'fragment_id': fragment.id,
-                                'text': fragment.text,
-                                'tags': fragment.tags
-                            }
-                        )
-                        logger.info(f"Индексирован фрагмент {i}/{len(fragments)} (ID: {fragment.id})")
-                    except Exception as e:
-                        logger.error(f"Ошибка при индексации фрагмента {fragment.id}: {e}")
-                        continue
-                
-                logger.info("Индексация завершена успешно")
-                
-            except Exception as e:
-                logger.error(f"Ошибка при получении фрагментов из БД: {e}")
-                return
-                
+        # Подключаемся к Elasticsearch
+        es = get_elasticsearch()
+        
+        # Проверяем подключение
+        if not es.ping():
+            logger.error("Could not connect to Elasticsearch")
+            return False
+
+        try:
+            # Пересоздаем индекс
+            create_reelearn_index(delete_if_exist=True)
+            logger.info("Index recreated successfully")
+
+            # Индексируем каждый фрагмент
+            for fragment in fragments:
+                if not fragment.text:
+                    logger.warning(f"Skipping fragment {fragment.id} - no text content")
+                    continue
+
+                # Подготавливаем документ для индексации
+                doc = {
+                    'fragment_id': fragment.id,
+                    'text': fragment.text,
+                    'language': fragment.language or 'unknown'
+                }
+
+                # Индексируем документ
+                es.index(
+                    index='reelearn',
+                    document=doc,
+                    id=str(fragment.id)
+                )
+                logger.info(f"Indexed fragment {fragment.id}")
+
+            logger.info("All fragments have been reindexed successfully")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error during reindexing: {e}")
+            return False
+
     except Exception as e:
-        logger.error(f"Неожиданная ошибка: {e}")
-    finally:
-        session.close()
+        logger.error(f"Error getting fragments from database: {e}")
+        return False
 
 if __name__ == "__main__":
     try:
-        asyncio.run(reindex_all_fragments())
+        success = reindex_all_fragments()
+        sys.exit(0 if success else 1)
     except KeyboardInterrupt:
-        logger.info("Процесс остановлен пользователем")
+        logger.info("Reindexing interrupted by user")
+        sys.exit(1)
     except Exception as e:
-        logger.error(f"Критическая ошибка: {e}")
+        logger.error(f"Unexpected error during reindexing: {e}")
         sys.exit(1)

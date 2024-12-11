@@ -1,9 +1,8 @@
-import asyncio
 import subprocess
 from core.config import settings
 from core.logger import logger
 
-async def slice_video(source_path: str, fragment_path: str, start: float, end: float) -> bool:
+def slice_video(source_path: str, fragment_path: str, start: float, end: float) -> bool:
     """
     Нарезает видео на фрагмент с помощью FFmpeg.
     
@@ -31,12 +30,12 @@ async def slice_video(source_path: str, fragment_path: str, start: float, end: f
     
     try:
         logger.debug(f"Запуск FFmpeg команды: {' '.join(command)}")
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
         )
-        stdout, stderr = await process.communicate()
+        stdout, stderr = process.communicate()
         
         if process.returncode != 0:
             error_msg = stderr.decode() if stderr else "Неизвестная ошибка"

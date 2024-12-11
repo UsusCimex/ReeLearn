@@ -8,10 +8,33 @@ class SearchStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
-class SearchResult(BaseModel):
+class SearchFragment(BaseModel):
+    fragment_id: str
+    text: str
+    timecode_start: float
+    timecode_end: float
+    s3_url: str
+    score: float
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        alias_generator=lambda string: string
+    )
+
+class VideoInfo(BaseModel):
     video_id: str
     name: str
-    status: str
+    description: Optional[str]
+    s3_url: str
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        alias_generator=lambda string: string
+    )
+
+class SearchResult(BaseModel):
+    video: VideoInfo
+    fragments: List[SearchFragment]
     fragments_count: int
 
     model_config = ConfigDict(

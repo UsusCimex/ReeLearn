@@ -8,13 +8,12 @@ from nltk.tokenize.punkt import PunktSentenceTokenizer
 import numpy as np
 from core.logger import logger
 from langdetect.lang_detect_exception import LangDetectException
-import asyncio
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from services.processing_service import extract_subtitles, optimize_fragments, process_and_upload_fragment
 import os
 import shutil
+from db.models.video_fragment import VideoFragment
 
 # Download required NLTK data for multiple languages
 SUPPORTED_LANGUAGES = {
@@ -56,18 +55,6 @@ class SubtitleSegment:
     end_time: float
     text: str
     language: str = None
-
-@dataclass
-class VideoFragment:
-    start_time: float
-    end_time: float
-    text: str
-    sentences: List[str]
-    language: str
-    tags: List[str] = None
-    s3_url: str = ""
-    speech_confidence: float = 1.0
-    no_speech_prob: float = 0.0
 
 class SmartVideoFragmenter:
     def __init__(
@@ -211,7 +198,7 @@ class SmartVideoFragmenter:
         
         return optimized
 
-    async def process_subtitles(
+    def process_subtitles(
             self,
             subtitles: List[SubtitleSegment]
         ) -> List[VideoFragment]:
@@ -251,7 +238,7 @@ class SmartVideoFragmenter:
             
         return fragments
 
-    async def process_video(self, video_path: str) -> List[VideoFragment]:
+    def process_video(self, video_path: str) -> List[VideoFragment]:
         """
         Process video file and extract fragments with subtitles.
         
@@ -262,25 +249,30 @@ class SmartVideoFragmenter:
             List[VideoFragment]: List of video fragments with subtitles
         """
         try:
-            # Extract subtitles using ProcessingService
-            raw_fragments = await extract_subtitles(video_path)
+            # Import VideoProcessor here to avoid circular import
+            from services.processing_service import VideoProcessor
             
-            # Convert raw fragments to SubtitleSegments
+            # Extract subtitles using VideoProcessor
+            processor = VideoProcessor()
+            fragments = processor.extract_subtitles(video_path)
+            
+            # Convert fragments to SubtitleSegments
             segments = []
-            for fragment in raw_fragments:
-                # Detect language
-                language = self._detect_language(fragment['text'])
+            for fragment in fragments:
+                # Detect language for each fragment
+                language = self._detect_language(fragment.text)
+                fragment.language = language
                 
                 segment = SubtitleSegment(
-                    start_time=fragment['start'],
-                    end_time=fragment['end'],
-                    text=fragment['text'],
+                    start_time=fragment.start_time,
+                    end_time=fragment.end_time,
+                    text=fragment.text,
                     language=language
                 )
                 segments.append(segment)
             
             # Process segments into optimized fragments
-            video_fragments = await self.process_subtitles(segments)
+            video_fragments = self.process_subtitles(segments)
             
             # Create temporary directory for fragment processing
             temp_dir = os.path.join(os.path.dirname(video_path), 'temp_fragments')
@@ -290,30 +282,25 @@ class SmartVideoFragmenter:
                 # Process each fragment
                 for fragment in video_fragments:
                     # Cut and upload fragment
-                    s3_url = await process_and_upload_fragment(
+                    s3_url = processor.process_and_upload_fragment(
                         video_path,
                         temp_dir,
-                        {
-                            'start': fragment.start_time,
-                            'end': fragment.end_time,
-                            'text': fragment.text
-                        }
+                        fragment
                     )
-                    
-                    if s3_url:
-                        fragment.s3_url = s3_url
-                    else:
-                        logger.error(f"Failed to process fragment: {fragment.text[:50]}...")
+                    # Update fragment with S3 URL
+                    fragment.s3_url = s3_url
+                
+                # Clean up temporary directory
+                shutil.rmtree(temp_dir, ignore_errors=True)
                 
                 return video_fragments
                 
-            finally:
-                # Cleanup temporary directory
-                try:
-                    shutil.rmtree(temp_dir)
-                except Exception as e:
-                    logger.warning(f"Failed to remove temporary directory: {e}")
-            
+            except Exception as e:
+                logger.error(f"Error processing video fragments: {e}")
+                # Clean up on error
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                raise
+                
         except Exception as e:
-            logger.error(f"Error processing video: {str(e)}")
+            logger.error(f"Error in video processing: {e}")
             raise

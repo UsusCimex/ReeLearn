@@ -1,8 +1,13 @@
-from db.base import async_session
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import AsyncGenerator
+from db.base import Session
+from sqlalchemy.orm import Session
+from contextlib import contextmanager
 
 # Зависимость для получения сессии базы данных
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with async_session() as session:
+@contextmanager
+def get_db() -> Session:
+    """Зависимость для получения сессии базы данных"""
+    session = Session()
+    try:
         yield session
+    finally:
+        session.close()

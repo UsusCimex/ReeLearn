@@ -1,17 +1,14 @@
-aiohttp
-aiofiles
-aioboto3
+requests
+boto3
 fastapi
 uvicorn[standard]
 sqlalchemy
-asyncpg
 psycopg2-binary
 alembic
 pydantic
 pydantic-settings
 elasticsearch
 celery
-celery[asyncio]
 redis
 python-multipart
 torch
@@ -20,3 +17,4 @@ torchaudio
 openai-whisper
 nltk==3.8.1
 langdetect==1.0.9
+psutil
