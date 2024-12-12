@@ -1,19 +1,19 @@
 import React from 'react';
 import { FiUploadCloud, FiCpu, FiCheck } from 'react-icons/fi';
-import '../styles/UploadProgress.css';
+import '../styles/upload_progress.css';
 
-interface UploadProgressProps {
-  uploadProgress: number;
+interface upload_progressProps {
+  upload_progress: number;
   processingProgress: number;
-  currentOperation: string;
+  current_operation: string;
   status: 'uploading' | 'processing' | 'completed' | 'error';
   error?: string;
 }
 
-const UploadProgress: React.FC<UploadProgressProps> = ({
-  uploadProgress,
+const upload_progress: React.FC<upload_progressProps> = ({
+  upload_progress,
   processingProgress,
-  currentOperation,
+  current_operation,
   status,
   error
 }) => {
@@ -35,7 +35,7 @@ const UploadProgress: React.FC<UploadProgressProps> = ({
       case 'uploading':
         return 'Uploading video...';
       case 'processing':
-        return currentOperation || 'Processing video...';
+        return current_operation || 'Processing video...';
       case 'completed':
         return 'Upload completed!';
       case 'error':
@@ -45,7 +45,7 @@ const UploadProgress: React.FC<UploadProgressProps> = ({
     }
   };
 
-  const progress = status === 'uploading' ? uploadProgress : status === 'completed' ? 100 : status === 'error' ? 0 : processingProgress;
+  const progress = status === 'uploading' ? upload_progress : status === 'completed' ? 100 : status === 'error' ? 0 : processingProgress;
 
   return (
     <div className={`upload-progress-container ${status}`}>
@@ -69,4 +69,4 @@ const UploadProgress: React.FC<UploadProgressProps> = ({
   );
 };
 
-export default UploadProgress;
+export default upload_progress;

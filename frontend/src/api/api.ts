@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { api_url } from './config';
 import { 
   videoInfo, 
@@ -14,13 +14,34 @@ import {
   searchStatus,
 } from '../types';
 
+// Create axios instance with base configuration
 const api = axios.create({
   baseURL: api_url,
-  transformResponse: [(data) => {
-    const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
-    return transformResponse(parsedData);
-  }]
+  timeout: 30000, // 30 second timeout
 });
+
+// Add response transformation interceptor
+api.interceptors.response.use(
+  (response) => {
+    if (response.data) {
+      return {
+        ...response,
+        data: transformResponse(response.data)
+      };
+    }
+    return response;
+  },
+  (error: AxiosError) => {
+    if (error.response?.status === 503) {
+      // Service Unavailable - likely a Celery task not ready
+      return Promise.reject({
+        status: taskStatus.PENDING,
+        message: 'Task is still processing'
+      });
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Helper function to transform snake_case to camelCase
 const toCamelCase = (str: string): string => {
@@ -38,7 +59,6 @@ const transformResponse = (data: any): any => {
   const transformed = Object.entries(data).reduce((acc: Record<string, any>, [key, value]) => {
     const camelKey = toCamelCase(key);
     
-    // Transform status fields to match our enums
     if (camelKey === 'status' && typeof value === 'string') {
       if (Object.values(taskStatus).includes(value as taskStatus)) {
         acc[camelKey] = value as taskStatus;
@@ -61,23 +81,48 @@ const transformResponse = (data: any): any => {
   return transformed;
 };
 
-// Функция для проверки статуса задачи
-export const checkTaskStatus = async (taskId: string): Promise<taskStatusResponse> => {
-  try {
-    const response = await api.get<taskStatusResponse>(`/tasks/${taskId}`);
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      throw new Error(error.response?.data?.detail || 'Failed to check task status');
+// Task polling configuration
+const POLL_INTERVAL = 2000; // 2 seconds
+const MAX_POLL_ATTEMPTS = 30; // 1 minute maximum polling time
+
+// Generic task polling function
+const pollTaskStatus = async (
+  taskId: string,
+  onProgress?: (status: taskStatusResponse) => void
+): Promise<taskStatusResponse> => {
+  let attempts = 0;
+
+  const poll = async (): Promise<taskStatusResponse> => {
+    try {
+      const response = await api.get<taskStatusResponse>(`/tasks/${taskId}`);
+      const status = response.data;
+
+      if (onProgress) {
+        onProgress(status);
+      }
+
+      if (status.status === taskStatus.COMPLETED || status.status === taskStatus.FAILED) {
+        return status;
+      }
+
+      if (++attempts >= MAX_POLL_ATTEMPTS) {
+        throw new Error('Task polling timeout exceeded');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      return poll();
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.detail || 'Task status check failed');
+      }
+      throw error;
     }
-    throw error;
-  }
+  };
+
+  return poll();
 };
 
-// Алиас для обратной совместимости
-export const getTaskStatus = checkTaskStatus;
-
-// Функция для загрузки видео
+// Upload video with progress tracking
 export const uploadVideo = async (
   file: File,
   onProgress?: progressCallback
@@ -107,8 +152,10 @@ export const uploadVideo = async (
   }
 };
 
-// Функция для поиска видео
-export const searchVideos = async (query: string): Promise<searchResponse> => {
+// Search videos with task polling
+export const searchVideos = async (
+  query: string
+): Promise<searchResponse> => {
   try {
     const response = await api.post<searchResponse>('/search', { query });
     return response.data;
@@ -120,32 +167,39 @@ export const searchVideos = async (query: string): Promise<searchResponse> => {
   }
 };
 
-// Функция для получения списка видео
+// Synchronous operations
 export const getVideoList = async (): Promise<videoListResponse> => {
   try {
-    const response = await api.get('/videos');
+    const response = await api.get<videoListResponse>('/videos');
     return response.data;
   } catch (error) {
-    throw new Error('Failed to fetch video list');
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Failed to fetch video list');
+    }
+    throw error;
   }
 };
 
-// Функция для получения информации о видео
-export const getVideoById = async (videoId: number): Promise<videoInfo> => {
+export const getVideoById = async (video_id: number): Promise<videoInfo> => {
   try {
-    const response = await api.get(`/videos/${videoId}`);
+    const response = await api.get<videoInfo>(`/videos/${video_id}`);
     return response.data;
   } catch (error) {
-    throw new Error('Failed to fetch video info');
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Failed to fetch video info');
+    }
+    throw error;
   }
 };
 
-// Функция для получения фрагментов видео
-export const getVideoFragments = async (videoId: number): Promise<videoFragmentsResponse> => {
+export const getVideoFragments = async (video_id: number): Promise<videoFragmentsResponse> => {
   try {
-    const response = await api.get(`/videos/${videoId}/fragments`);
+    const response = await api.get<videoFragmentsResponse>(`/videos/${video_id}/fragments`);
     return response.data;
   } catch (error) {
-    throw new Error('Failed to fetch video fragments');
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.detail || 'Failed to fetch video fragments');
+    }
+    throw error;
   }
 };

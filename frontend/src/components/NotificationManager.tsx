@@ -1,7 +1,7 @@
 import React from 'react';
-import { checkTaskStatus } from '../api/api';
 import { taskStatusResponse, uploadState, uploadTaskResult, uploadStatus, taskStatus } from '../types';
 import '../styles/NotificationManager.css';
+import { get_task_status } from '../api/config';
 
 interface notification_manager_props {
   task_id: string;
@@ -20,7 +20,7 @@ export const NotificationManager: React.FC<notification_manager_props> = ({
 }) => {
   const check_status = async (): Promise<boolean> => {
     try {
-      const status: taskStatusResponse = await checkTaskStatus(task_id);
+      const status: taskStatusResponse = await get_task_status(task_id);
 
       if (status.status === taskStatus.COMPLETED) {
         if (status.result && 'type' in status.result && status.result.type === 'upload') {

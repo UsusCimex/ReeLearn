@@ -6,7 +6,7 @@ import '../styles/Navigation.css';
 
 interface NavigationProps {
   onUploadStateChange: (state: Partial<uploadState>, notification_id: string) => void;
-  onUploadComplete: (videoId: string) => void;
+  onUploadComplete: (video_id: string) => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -15,9 +15,9 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   const [showUploadModal, setShowUploadModal] = useState(false);
 
-  const handleUploadComplete = (videoId: string) => {
+  const handleUploadComplete = (video_id: string) => {
     setShowUploadModal(false);
-    onUploadComplete(videoId);
+    onUploadComplete(video_id);
     // You might want to refresh the video list here
   };
 
@@ -49,8 +49,8 @@ export const Navigation: React.FC<NavigationProps> = ({
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowUploadModal(false)}>×</button>
             <UploadComponent
-              on_upload_state_change={handleUploadStateChange}
-              on_upload_complete={handleUploadComplete}
+              onUploadStateChange={handleUploadStateChange}
+              onUploadComplete={handleUploadComplete}
             />
           </div>
         </div>
