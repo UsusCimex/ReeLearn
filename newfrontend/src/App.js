@@ -10,6 +10,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import AppRoutes from './routes';
 import { UploadProvider } from './UploadContext';
 import UploadModal from './components/UploadModal';
+import './App.css';
 
 const theme = createTheme({
   palette: {

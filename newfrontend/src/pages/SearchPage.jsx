@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+// SearchPage.jsx
+import React, { useState, useEffect, useRef } from 'react';
 import { searchVideos } from '../api';
-import { Box, TextField, Button, FormControlLabel, Checkbox, Typography, Paper, List, ListItemButton, ListItemIcon, ListItemText, Card, CardContent, Grid, Divider } from '@mui/material';
+import { Box, TextField, Button, FormControlLabel, Checkbox, Typography, Paper, List, ListItemButton, ListItemIcon, ListItemText, Card, CardContent, Grid, Divider, Dialog, DialogTitle, DialogContent, IconButton } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
 import SearchIcon from '@mui/icons-material/Search';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import CloseIcon from '@mui/icons-material/Close';
 
 function SearchPage() {
   const [query, setQuery] = useState('');
@@ -12,6 +15,12 @@ function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [history, setHistory] = useState([]);
+  
+  // Для модального окна большого видео
+  const [openVideoModal, setOpenVideoModal] = useState(false);
+  const [videoModalUrl, setVideoModalUrl] = useState('');
+  const videoContainerRef = useRef(null);
+  const videoRef = useRef(null);
 
   useEffect(() => {
     const savedHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
@@ -56,10 +65,43 @@ function SearchPage() {
     }
   };
 
-  const highlightText = (text, term) => {
+  const highlightTextHtml = (text, term, exact) => {
     if (!term.trim()) return text;
-    const regex = new RegExp(`(${term})`, 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
+    const regex = exact ? new RegExp(`\\b(${term})\\b`, 'gi') : new RegExp(`(${term})`, 'gi');
+    return text.replace(regex, '<span style="background:yellow;">$1</span>');
+  };  
+  
+  const highlightTextVtt = (text, term, exact) => {
+    if (!term.trim()) return text;
+    const regex = exact ? new RegExp(`\\b${term}\\b`, 'gi') : new RegExp(`(${term})`, 'gi');
+    return text.replace(regex, (match) => `<c.highlight>${match}</c>`);
+  };
+
+  // Создание WebVTT для субтитров фрагмента
+  const createVttBlobUrl = (fragmentText) => {
+    const highlighted = highlightTextVtt(fragmentText, query, exact);
+    const vtt = `WEBVTT
+  
+  00:00.000 --> 00:59.000
+  ${highlighted}
+  `;
+    const blob = new Blob([vtt], { type: 'text/vtt' });
+    return URL.createObjectURL(blob);
+  };
+
+  const handleVideoNameClick = (url) => {
+    setVideoModalUrl(url);
+    setOpenVideoModal(true);
+  };
+
+  const handleFullscreen = () => {
+    if (videoContainerRef.current) {
+      if (videoContainerRef.current.requestFullscreen) {
+        videoContainerRef.current.requestFullscreen();
+      } else if (videoContainerRef.current.webkitRequestFullscreen) {
+        videoContainerRef.current.webkitRequestFullscreen();
+      }
+    }
   };
 
   return (
@@ -123,14 +165,13 @@ function SearchPage() {
                   <Grid item xs={12} sm={6} key={r.video.video_id}>
                     <Card variant="outlined">
                       <CardContent>
-                        <Typography variant="h6">
-                          <a href={r.video.s3_url} target="_blank" rel="noopener noreferrer"
-                             style={{textDecoration:'none', color:'inherit', cursor:'pointer'}}>
-                            {r.video.name}
-                          </a>
+                        <Typography variant="h6" sx={{cursor:'pointer', textDecoration:'underline'}}
+                          onClick={() => handleVideoNameClick(r.video.s3_url)}>
+                          {r.video.name}
                         </Typography>
                         {r.fragments.map(f => {
-                          const highlighted = highlightText(f.text, query);
+                          const highlighted = highlightTextHtml(f.text, query, exact);
+                          const trackUrl = createVttBlobUrl(f.text);
                           return (
                             <Box key={f.fragment_id} sx={{ mt:2 }}>
                               <Typography variant="subtitle1" component="div"><b>Фрагмент:</b></Typography>
@@ -142,7 +183,9 @@ function SearchPage() {
                                   src={f.s3_url}
                                   controls
                                   style={{ width: '100%', maxWidth:'400px', borderRadius:'4px', border:'1px solid #ccc' }}
-                                />
+                                >
+                                  <track src={trackUrl} kind="subtitles" srcLang="ru" default />
+                                </video>
                               </Box>
                               <Typography variant="body2" sx={{mt:1}}><b>Оценка:</b> {f.score.toFixed(2)}</Typography>
                             </Box>
@@ -157,6 +200,33 @@ function SearchPage() {
           )}
         </Grid>
       </Grid>
+
+      {/* Модальное окно для большого видео */}
+      <Dialog open={openVideoModal} onClose={() => setOpenVideoModal(false)} fullWidth maxWidth="md">
+        <DialogTitle>
+          <Box sx={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+            <Typography variant="h6">Просмотр видео</Typography>
+            <Box>
+              <IconButton onClick={handleFullscreen} title="Полноэкранный режим">
+                <FullscreenIcon />
+              </IconButton>
+              <IconButton onClick={() => setOpenVideoModal(false)}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box ref={videoContainerRef} sx={{ position:'relative', textAlign:'center' }}>
+            <video
+              ref={videoRef}
+              src={videoModalUrl}
+              controls
+              style={{ width:'100%', borderRadius:'4px', background:'#000' }}
+            />
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

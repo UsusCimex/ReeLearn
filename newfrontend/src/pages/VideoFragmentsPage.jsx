@@ -10,7 +10,6 @@ function VideoFragmentsPage() {
   const [error, setError] = useState(null);
 
   const [inputTerm, setInputTerm] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchFragments = async () => {
@@ -30,16 +29,12 @@ function VideoFragmentsPage() {
   const highlightText = (text, term) => {
     if(!term.trim()) return text;
     const regex = new RegExp(`(${term})`, 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
+    return text.replace(regex, '<span style="background:yellow;">$1</span>');
   };
 
-  const handleKeyDown = (e) => {
-    if(e.key === 'Enter') {
-      setSearchTerm(inputTerm);
-    }
-  };
-
-  // Фильтрация фрагментов: если есть searchTerm, показываем только те, где есть совпадение
+  // Динамическая фильтрация без Enter: searchTerm = inputTerm
+  const searchTerm = inputTerm;
+  
   const filteredFragments = searchTerm.trim()
     ? fragments.filter(f => f.text.toLowerCase().includes(searchTerm.toLowerCase()))
     : fragments;
@@ -56,8 +51,7 @@ function VideoFragmentsPage() {
             variant="outlined"
             size="small"
             value={inputTerm}
-            onChange={(e) => setInputTerm(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onChange={(e) => setInputTerm(e.target.value)} // сразу обновляем, без Enter
             sx={{ background:'#fff', borderRadius:1 }}
           />
         </Box>
