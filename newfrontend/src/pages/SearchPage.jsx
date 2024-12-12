@@ -1,7 +1,6 @@
-// SearchPage.jsx (более "красиво")
 import React, { useState, useEffect } from 'react';
 import { searchVideos } from '../api';
-import { Box, TextField, Button, FormControlLabel, Checkbox, Typography, Paper, List, ListItemButton, ListItemIcon, ListItemText, Card, Grid, Divider } from '@mui/material';
+import { Box, TextField, Button, FormControlLabel, Checkbox, Typography, Paper, List, ListItemButton, ListItemIcon, ListItemText, Card, CardContent, Grid, Divider } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
 import SearchIcon from '@mui/icons-material/Search';
 
@@ -51,6 +50,18 @@ function SearchPage() {
     performSearch(item);
   };
 
+  const handleKeyDown = (e) => {
+    if(e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const highlightText = (text, term) => {
+    if (!term.trim()) return text;
+    const regex = new RegExp(`(${term})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+  };
+
   return (
     <Box>
       <Paper sx={{ p:4, mb:4, background:'linear-gradient(to right, #2196f3, #64b5f6)', color:'#fff' }}>
@@ -58,19 +69,21 @@ function SearchPage() {
         <Typography variant="subtitle1">Найдите нужный фрагмент по текстовому описанию</Typography>
         <Box sx={{ display:'flex', alignItems:'center', mt:3, gap:2, flexWrap:'wrap' }}>
           <TextField
-            label="Запрос"
+            placeholder="Запрос..."
             variant="outlined"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             size="small"
+            onKeyDown={handleKeyDown}
             sx={{ background:'#fff', borderRadius:1, minWidth:'200px' }}
           />
           <TextField
-            label="Теги (через запятую)"
+            placeholder="Теги (через запятую)"
             variant="outlined"
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             size="small"
+            onKeyDown={handleKeyDown}
             sx={{ background:'#fff', borderRadius:1, minWidth:'200px' }}
           />
           <FormControlLabel
@@ -107,25 +120,35 @@ function SearchPage() {
               {results.results.length === 0 && <Typography>Ничего не найдено</Typography>}
               <Grid container spacing={2}>
                 {results.results.map((r) => (
-                  <Grid item xs={12} key={r.video.video_id}>
-                    <Card variant="outlined" sx={{ display:'flex', flexWrap:'wrap' }}>
-                      <Box sx={{ flex:'1 1 300px', p:2 }}>
-                        <Typography variant="h6">{r.video.name}</Typography>
-                        {r.fragments.map(f => (
-                          <Box key={f.fragment_id} sx={{ mt:2 }}>
-                            <Typography variant="subtitle1"><b>Фрагмент:</b> {f.text}</Typography>
-                            <Typography variant="body2" color="text.secondary"><b>Время:</b> {f.timecode_start} - {f.timecode_end}</Typography>
-                            <Box sx={{ mt:1 }}>
-                              <video
-                                src={f.s3_url}
-                                controls
-                                style={{ width: '100%', maxWidth:'400px', borderRadius:'4px', border:'1px solid #ccc' }}
-                              />
+                  <Grid item xs={12} sm={6} key={r.video.video_id}>
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography variant="h6">
+                          <a href={r.video.s3_url} target="_blank" rel="noopener noreferrer"
+                             style={{textDecoration:'none', color:'inherit', cursor:'pointer'}}>
+                            {r.video.name}
+                          </a>
+                        </Typography>
+                        {r.fragments.map(f => {
+                          const highlighted = highlightText(f.text, query);
+                          return (
+                            <Box key={f.fragment_id} sx={{ mt:2 }}>
+                              <Typography variant="subtitle1" component="div"><b>Фрагмент:</b></Typography>
+                              <Typography variant="body1" component="div"
+                                dangerouslySetInnerHTML={{__html: highlighted}} />
+                              <Typography variant="body2" color="text.secondary"><b>Время:</b> {f.timecode_start} - {f.timecode_end}</Typography>
+                              <Box sx={{ mt:1 }}>
+                                <video
+                                  src={f.s3_url}
+                                  controls
+                                  style={{ width: '100%', maxWidth:'400px', borderRadius:'4px', border:'1px solid #ccc' }}
+                                />
+                              </Box>
+                              <Typography variant="body2" sx={{mt:1}}><b>Оценка:</b> {f.score.toFixed(2)}</Typography>
                             </Box>
-                            <Typography variant="body2" sx={{mt:1}}><b>Оценка:</b> {f.score.toFixed(2)}</Typography>
-                          </Box>
-                        ))}
-                      </Box>
+                          );
+                        })}
+                      </CardContent>
                     </Card>
                   </Grid>
                 ))}

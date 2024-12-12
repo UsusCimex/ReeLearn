@@ -1,14 +1,26 @@
-import React, { useState, useContext } from 'react';
-import { uploadVideo } from '../api';
+import React, { useState, useContext, useEffect } from 'react';
+import { uploadVideo, getTaskStatus } from '../api';
 import { UploadContext } from '../UploadContext';
 import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Typography } from '@mui/material';
 
 function UploadModal({ onClose }) {
-  const { addUpload } = useContext(UploadContext);
+  const { addUpload, updateUpload } = useContext(UploadContext);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState(null);
   const [error, setError] = useState(null);
+  const [taskId, setTaskId] = useState('');
+
+  useEffect(() => {
+    if (taskId) {
+      // Делаем один запрос для получения статуса
+      getTaskStatus(taskId).then(res => {
+        updateUpload(taskId, res.status, res.progress);
+      }).catch(() => {
+        updateUpload(taskId, 'failed', 0);
+      });
+    }
+  }, [taskId, updateUpload]);
 
   const handleUpload = async () => {
     if (!file || !name.trim()) {
@@ -23,7 +35,9 @@ function UploadModal({ onClose }) {
 
     try {
       const res = await uploadVideo(formData);
-      addUpload(res.task_id);
+      // Добавляем загрузку в контекст
+      addUpload({ taskId: res.task_id, status: res.status, progress:0 });
+      setTaskId(res.task_id);
       onClose(); 
     } catch (e) {
       setError('Ошибка при загрузке');

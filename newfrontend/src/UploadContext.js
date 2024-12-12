@@ -1,44 +1,23 @@
-import React, { createContext, useState, useEffect } from 'react';
-import { getTaskStatus } from './api';
+import React, { createContext, useState } from 'react';
 
 export const UploadContext = createContext();
 
 export function UploadProvider({ children }) {
   const [uploads, setUploads] = useState([]); 
-  // Формат: [{ taskId: string, status: string, progress: number }, ...]
+  // Формат upload: { taskId, status, progress }
 
-  // Периодически опрашиваем состояние загрузок
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      if (uploads.length === 0) return;
-      const updated = [];
-      for (let u of uploads) {
-        if (u.status === 'completed' || u.status === 'failed') {
-          updated.push(u); // Не обновляем завершенные, просто храним их
-        } else {
-          try {
-            const res = await getTaskStatus(u.taskId);
-            updated.push({
-              ...u,
-              status: res.status,
-              progress: res.progress || 0
-            });
-          } catch (e) {
-            updated.push(u);
-          }
-        }
-      }
-      setUploads(updated);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [uploads]);
+  // Добавляем загрузку
+  const addUpload = (task) => {
+    // task = { taskId, status, progress }
+    setUploads(prev => [...prev, task]);
+  };
 
-  const addUpload = (taskId) => {
-    setUploads(prev => [...prev, { taskId, status: 'uploading', progress: 0 }]);
+  const updateUpload = (taskId, newStatus, newProgress=0) => {
+    setUploads(prev => prev.map(u => u.taskId === taskId ? {...u, status:newStatus, progress:newProgress} : u));
   };
 
   return (
-    <UploadContext.Provider value={{ uploads, addUpload }}>
+    <UploadContext.Provider value={{ uploads, addUpload, updateUpload }}>
       {children}
     </UploadContext.Provider>
   );
