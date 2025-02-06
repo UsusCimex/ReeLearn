@@ -24,7 +24,8 @@ export const translations = {
       welcome: "Welcome to ReeLearn!",
       heroText: "Search, Upload, and Discover amazing video content.",
       status: "Status",
-      time: "Time"
+      time: "Time",
+      viewAllVideos: "Browse and enjoy all uploaded videos.",
     },
     ru: {
       home: "Главная",
@@ -51,7 +52,8 @@ export const translations = {
       welcome: "Добро пожаловать в ReeLearn!",
       heroText: "Ищите, загружайте и открывайте удивительный видеоконтент.",
       status: "Статус",
-      time: "Время"
+      time: "Время",
+      viewAllVideos: "Просмотрите и наслаждайтесь всеми загруженными видео.",
     }
   };
   
