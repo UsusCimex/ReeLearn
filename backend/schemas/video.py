@@ -11,6 +11,8 @@ class FragmentInfo(BaseModel):
 
 class VideoFragmentsResponse(BaseModel):
     video_id: int
+    title: str
+    description: Optional[str]
     video_url: Optional[str] = None
     fragments: List[FragmentInfo]
 

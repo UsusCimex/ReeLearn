@@ -1,6 +1,10 @@
+// src/components/VideoPlayer.jsx
 import React, { useRef, useEffect, useState } from "react";
-import { Box, Typography, IconButton } from "@mui/material";
+import { Box, Typography, IconButton, Fade } from "@mui/material";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import PauseIcon from "@mui/icons-material/Pause";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import Highlighter from "react-highlight-words";
 import { motion } from "framer-motion";
 
@@ -9,13 +13,15 @@ const VideoPlayer = ({
   fragments = [],
   searchWords = [],
   exactSearch = false,
-  staticSubtitle
+  staticSubtitle,
+  preview = false // Если true, ограничиваем размер видео для превью
 }) => {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const [currentSubtitle, setCurrentSubtitle] = useState(staticSubtitle || "");
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  // Если используется динамический режим – обновляем субтитры в зависимости от текущего времени видео
+  // Обновление субтитров, если видео воспроизводится в динамическом режиме
   useEffect(() => {
     if (staticSubtitle !== undefined) {
       setCurrentSubtitle(staticSubtitle);
@@ -26,7 +32,9 @@ const VideoPlayer = ({
     const handleTimeUpdate = () => {
       if (fragments.length > 0) {
         const frag = fragments.find(
-          (f) => video.currentTime >= f.timecode_start && video.currentTime <= f.timecode_end
+          (f) =>
+            video.currentTime >= f.timecode_start &&
+            video.currentTime <= f.timecode_end
         );
         setCurrentSubtitle(frag ? frag.text : "");
       } else {
@@ -37,6 +45,20 @@ const VideoPlayer = ({
     return () => video.removeEventListener("timeupdate", handleTimeUpdate);
   }, [fragments, staticSubtitle]);
 
+  // Переключение воспроизведения по клику
+  const togglePlayPause = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play();
+      setIsPlaying(true);
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  // Обработчик перехода в полноэкранный режим
   const handleFullscreen = () => {
     if (containerRef.current.requestFullscreen) {
       containerRef.current.requestFullscreen();
@@ -55,34 +77,85 @@ const VideoPlayer = ({
       sx={{
         position: "relative",
         width: "100%",
-        backgroundColor: "black"
+        maxWidth: preview ? 400 : "100%",
+        mx: "auto",
+        backgroundColor: "black",
+        borderRadius: 2,
+        overflow: "hidden"
       }}
     >
       {videoUrl ? (
         <video
           ref={videoRef}
           src={videoUrl}
-          controls
           style={{ width: "100%", display: "block" }}
-          controlsList="nofullscreen"
+          // Скрываем нативные элементы управления для использования кастомных кнопок
+          controls={false}
+          onClick={togglePlayPause}
         />
       ) : (
         <Typography variant="body2" color="text.secondary">
           Video URL not available.
         </Typography>
       )}
+
+      {/* Центровая кнопка Play, если видео не воспроизводится */}
+      <Fade in={!isPlaying}>
+        <IconButton
+          onClick={togglePlayPause}
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            color: "#fff",
+            bgcolor: "rgba(0,0,0,0.5)",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.7)" },
+            zIndex: 10
+          }}
+        >
+          <PlayArrowIcon sx={{ fontSize: 50 }} />
+        </IconButton>
+      </Fade>
+
+      {/* Панель управления в правом верхнем углу */}
       <Box
         sx={{
           position: "absolute",
-          top: 10,
-          right: 10,
-          zIndex: 20
+          top: "10px",
+          right: "10px",
+          zIndex: 10,
+          display: "flex",
+          gap: 1
         }}
       >
-        <IconButton onClick={handleFullscreen} sx={{ color: "#fff" }}>
+        {/* Кнопка полноэкранного режима */}
+        <IconButton
+          onClick={handleFullscreen}
+          sx={{
+            color: "#fff",
+            bgcolor: "rgba(0,0,0,0.5)",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.7)" }
+          }}
+        >
           <FullscreenIcon />
         </IconButton>
+        {/* Кнопка скачивания видео */}
+        <IconButton
+          component="a"
+          href={videoUrl}
+          download
+          sx={{
+            color: "#fff",
+            bgcolor: "rgba(0,0,0,0.5)",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.7)" }
+          }}
+        >
+          <CloudDownloadIcon />
+        </IconButton>
       </Box>
+
+      {/* Субтитры */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

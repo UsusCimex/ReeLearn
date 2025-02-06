@@ -46,6 +46,8 @@ def get_video_fragments(video_id: int):
             
             return VideoFragmentsResponse(
                 video_id=video_id,
+                title=video.name,
+                description=video.description,
                 video_url=video_url,
                 fragments=fragments_info
             )
