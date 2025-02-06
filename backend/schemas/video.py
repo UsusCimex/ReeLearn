@@ -11,6 +11,7 @@ class FragmentInfo(BaseModel):
 
 class VideoFragmentsResponse(BaseModel):
     video_id: int
+    video_url: Optional[str] = None
     fragments: List[FragmentInfo]
 
 class VideoInfo(BaseModel):
@@ -18,9 +19,3 @@ class VideoInfo(BaseModel):
     name: str
     status: str
     fragments_count: int
-
-    class Config:
-        from_attributes = True
-
-class VideoListResponse(BaseModel):
-    videos: List[VideoInfo]

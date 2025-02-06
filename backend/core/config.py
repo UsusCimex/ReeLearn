@@ -1,62 +1,44 @@
-import os
-from pydantic import validator
 from pydantic_settings import BaseSettings
-from typing import List, Optional
-import json
+from typing import List
 
 class Settings(BaseSettings):
-    # Application settings
-    PROGRAM_NAME: str = os.getenv("PROGRAM_NAME", "ReeLearn")
-    PROGRAM_VERSION: str = os.getenv("PROGRAM_VERSION", "1.0.0")
-    TIMEZONE: str = os.getenv("TIMEZONE", "UTC")
-    API_V1_STR: str = os.getenv("API_V1_STR", "/api/v1")
-    HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", 8000))
-    
+    PROGRAM_NAME: str = "ReeLearn"
+    PROGRAM_VERSION: str = "2.0.0"
+    TIMEZONE: str = "UTC"
+    API_V1_STR: str = "/api/v1"
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
     ALLOWED_ORIGINS: List[str] = ["http://localhost", "http://localhost:3000"]
-
-    # Database settings
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "reelearndb")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "reelearndb")
-    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
-    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5433")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "reelearndb")
+    POSTGRES_USER: str = "reelearndb"
+    POSTGRES_PASSWORD: str = "reelearndb"
+    POSTGRES_SERVER: str = "localhost"
+    POSTGRES_PORT: str = "5433"
+    POSTGRES_DB: str = "reelearndb"
+    VIDEO_MIN_FRAGMENT_DURATION: float = 3.0
+    VIDEO_MAX_FRAGMENT_DURATION: float = 60.0
+    VIDEO_OPTIMAL_DURATION: float = 4.5
+    VIDEO_DEFAULT_LANGUAGE: str = "en"
+    VIDEO_SUPPORTED_LANGUAGES: List[str] = ["en", "ru"]
+    VIDEO_MAX_SENTENCES_PER_FRAGMENT: int = 2
+    ELASTICSEARCH_HOST: str = "localhost"
+    ELASTICSEARCH_PORT: int = 9200
+    ELASTICSEARCH_INDEX_NAME: str = "reelearn_index"
+    ELASTICSEARCH_BATCH_SIZE: int = 100
+    ELASTICSEARCH_TIMEOUT: int = 30
+    S3_ENDPOINT_URL: str = "http://minio:9000"
+    S3_PUBLIC_URL: str = "http://localhost:9000"
+    S3_ACCESS_KEY: str = "minioadmin"
+    S3_SECRET_KEY: str = "minioadmin"
+    S3_BUCKET_NAME: str = "videos"
+    FFMPEG_THREADS: int = 0
+    FFMPEG_PRESET: str = "medium"
+    FFMPEG_CRF: int = 23
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    TEMP_UPLOAD_DIR: str = "/tmp/videos"
     
     @property
     def DATABASE_URL(self) -> str:
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-
-    # Video Processing Settings
-    VIDEO_MIN_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MIN_FRAGMENT_DURATION", "3"))
-    VIDEO_MAX_FRAGMENT_DURATION: float = float(os.getenv("VIDEO_MAX_FRAGMENT_DURATION", "7"))
-    VIDEO_OPTIMAL_DURATION: float = float(os.getenv("VIDEO_OPTIMAL_DURATION", "4.5"))
-    VIDEO_DEFAULT_LANGUAGE: str = os.getenv("VIDEO_DEFAULT_LANGUAGE", "en")
-    VIDEO_MAX_SENTENCES_PER_FRAGMENT: int = int(os.getenv("VIDEO_MAX_SENTENCES_PER_FRAGMENT", "2"))
-
-    # Elasticsearch settings
-    ELASTICSEARCH_HOST: str = os.getenv("ELASTICSEARCH_HOST", "localhost")
-    ELASTICSEARCH_PORT: int = int(os.getenv("ELASTICSEARCH_PORT", 9200))
-    ELASTICSEARCH_INDEX_NAME: str = os.getenv("ELASTICSEARCH_INDEX_NAME", "reelearn_index")
-    ELASTICSEARCH_BATCH_SIZE: int = int(os.getenv("ELASTICSEARCH_BATCH_SIZE", "100"))
-    ELASTICSEARCH_TIMEOUT: int = int(os.getenv("ELASTICSEARCH_TIMEOUT", "30"))
-
-    # S3 (MinIO) settings
-    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://minio:9000")
-    S3_PUBLIC_URL: str = os.getenv("S3_PUBLIC_URL", "http://localhost:9000")
-    S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
-    S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minioadmin")
-    S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "videos")
-
-    # FFmpeg Settings
-    FFMPEG_THREADS: int = int(os.getenv("FFMPEG_THREADS", "0"))
-    FFMPEG_PRESET: str = os.getenv("FFMPEG_PRESET", "medium")
-    FFMPEG_CRF: int = int(os.getenv("FFMPEG_CRF", "23"))
-
-    # Celery settings
-    CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
-    CELERY_RESULT_BACKEND: str = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
-    
-    # Дополнительные настройки
-    TEMP_UPLOAD_DIR: str = os.getenv("TEMP_UPLOAD_DIR", "/tmp/videos")
 
 settings = Settings()

@@ -2,21 +2,18 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Установка системных зависимостей
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка переменной окружения для увеличения таймаута в секундах
 ENV PIP_DEFAULT_TIMEOUT=1200
 
-# Копирование и установка зависимостей Python
+# Копирование и установка зависимостей
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --retries 3 -r requirements.txt
+RUN pip install --upgrade pip && pip install --retries 3 -r requirements.txt
 
-# Download NLTK data
+# Скачиваем данные NLTK
 RUN python -c "import nltk; nltk.download('punkt')"
 
 # Копирование исходного кода приложения

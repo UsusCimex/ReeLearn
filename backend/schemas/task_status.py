@@ -1,12 +1,12 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 from typing import Optional, Any
 from enum import Enum
 
 class TaskStatus(str, Enum):
-    PENDING = "pending"
-    PROGRESS = "progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    pending = "pending"
+    progress = "progress"
+    completed = "completed"
+    failed = "failed"
 
 class TaskStatusResponse(BaseModel):
     status: TaskStatus
@@ -14,8 +14,3 @@ class TaskStatusResponse(BaseModel):
     current_operation: str
     result: Optional[Any] = None
     error: Optional[str] = None
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        alias_generator=lambda string: string
-    )
