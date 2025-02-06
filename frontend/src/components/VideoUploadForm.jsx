@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from "react";
+// src/components/VideoUploadForm.jsx
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   TextField,
   Button,
   LinearProgress,
-  Typography
+  Typography,
+  Paper
 } from "@mui/material";
 import AlertMessage from "./AlertMessage";
-import { uploadVideo, getTaskStatus } from "../services/api"; // Предполагается, что API‑сервисы реализованы отдельно
+import { uploadVideo, getTaskStatus } from "../services/api"; // API‑сервисы должны быть реализованы отдельно
 import { useTranslation } from "../hooks/useTranslation";
 
 const VideoUploadForm = () => {
   const [file, setFile] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [taskId, setTaskId] = useState("");
@@ -19,6 +22,7 @@ const VideoUploadForm = () => {
   const [statusText, setStatusText] = useState("");
   const [error, setError] = useState("");
   const { t } = useTranslation();
+  const fileInputRef = useRef();
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -42,7 +46,10 @@ const VideoUploadForm = () => {
           const statusRes = await getTaskStatus(taskId);
           setProgress(statusRes.progress || 0);
           setStatusText(statusRes.current_operation || "");
-          if (statusRes.status === "completed" || statusRes.status === "failed") {
+          if (
+            statusRes.status === "completed" ||
+            statusRes.status === "failed"
+          ) {
             clearInterval(interval);
           }
         } catch (err) {
@@ -54,23 +61,73 @@ const VideoUploadForm = () => {
     return () => clearInterval(interval);
   }, [taskId]);
 
+  const handleFileChange = (e) => {
+    if (e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  // Обработчики для drag & drop
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setFile(e.dataTransfer.files[0]);
+      e.dataTransfer.clearData();
+    }
+  };
+
   return (
     <Box>
       <Box
         component="form"
         onSubmit={handleUpload}
-        sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2
+        }}
       >
-        <Button variant="contained" component="label">
-          {t("selectFile")}
+        {/* Область drag & drop / выбора файла */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            textAlign: "center",
+            borderColor: dragOver ? "primary.main" : "grey.400",
+            backgroundColor: dragOver ? "grey.100" : "inherit",
+            cursor: "pointer",
+            transition: "border-color 0.3s, background-color 0.3s"
+          }}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current.click()}
+        >
+          <Typography variant="body1">
+            {file
+              ? file.name
+              : t("selectFile") ||
+                "Select Video File (click or drag & drop)"}
+          </Typography>
           <input
+            ref={fileInputRef}
             type="file"
             hidden
             accept="video/*"
-            onChange={(e) => setFile(e.target.files[0])}
+            onChange={handleFileChange}
           />
-        </Button>
-        {file && <Typography variant="body2">{file.name}</Typography>}
+        </Paper>
         <TextField
           label={t("videoName")}
           value={name}
