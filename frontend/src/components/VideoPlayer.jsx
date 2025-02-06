@@ -15,8 +15,8 @@ const VideoPlayer = ({
   const overlayRef = useRef(null);
   const [currentSubtitle, setCurrentSubtitle] = useState(staticSubtitle || "");
 
-  // Если staticSubtitle не передан, используем динамический режим (по времени)
   useEffect(() => {
+    // Если staticSubtitle передан, используем его (режим для фрагментов)
     if (staticSubtitle !== undefined) {
       setCurrentSubtitle(staticSubtitle);
       return;
@@ -37,7 +37,6 @@ const VideoPlayer = ({
     return () => video.removeEventListener("timeupdate", handleTimeUpdate);
   }, [fragments, staticSubtitle]);
 
-  // Обработка перехода в/из полноэкранного режима для корректного позиционирования оверлея
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFullscreen =

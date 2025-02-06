@@ -1,3 +1,4 @@
+// src/pages/VideoDetailPage.jsx
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Typography, Box, TextField, Grid } from "@mui/material";
@@ -5,6 +6,7 @@ import VideoPlayer from "../components/VideoPlayer";
 import LoadingSpinner from "../components/LoadingSpinner";
 import AlertMessage from "../components/AlertMessage";
 import { getVideoFragments } from "../services/api";
+import { useTranslation } from "../hooks/useTranslation";
 
 const VideoDetailPage = () => {
   const { id } = useParams();
@@ -14,13 +16,13 @@ const VideoDetailPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { t } = useTranslation();
 
   const fetchVideoDetails = async () => {
     setLoading(true);
     setError("");
     try {
       const res = await getVideoFragments(id);
-      // Ожидается, что API возвращает объект с полями video_url и fragments
       setAllFragments(res.fragments || []);
       setFilteredFragments(res.fragments || []);
       setVideoUrl(res.video_url || "");
@@ -48,17 +50,16 @@ const VideoDetailPage = () => {
   }, [searchQuery, allFragments]);
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ mb: 2 }}>
-        Video Detail
+        {t("videoDetail")}
       </Typography>
       {loading ? (
         <LoadingSpinner />
       ) : (
         <>
-          {/* Полный видеоплеер с динамическими субтитрами */}
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Full Video
+            {t("fullVideo")}
           </Typography>
           <VideoPlayer
             videoUrl={videoUrl}
@@ -66,13 +67,12 @@ const VideoDetailPage = () => {
             searchWords={[]}
             exactSearch={false}
           />
-          {/* Секция с фрагментами */}
           <Box sx={{ mt: 4 }}>
             <Typography variant="h6" sx={{ mb: 1 }}>
-              Video Fragments
+              {t("videoFragments")}
             </Typography>
             <TextField
-              label="Search fragments"
+              label={t("searchFragments")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               fullWidth
@@ -83,13 +83,13 @@ const VideoDetailPage = () => {
                 <Grid item xs={12} sm={6} md={4} key={frag.fragment_id}>
                   <VideoPlayer
                     videoUrl={frag.s3_url}
-                    fragments={[]} // Используем статический режим
+                    fragments={[]} // для фрагмента используем static режим
                     staticSubtitle={frag.text}
                     searchWords={searchQuery.split(" ").filter((w) => w.trim() !== "")}
                     exactSearch={true}
                   />
                   <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                    Time: {frag.timecode_start} - {frag.timecode_end}
+                    {`${t("time")}: ${frag.timecode_start} - ${frag.timecode_end}`}
                   </Typography>
                 </Grid>
               ))}

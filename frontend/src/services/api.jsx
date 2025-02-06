@@ -13,18 +13,8 @@ export const uploadVideo = async (file, name, description) => {
   formData.append("name", name);
   formData.append("description", description);
   const res = await axios.post(`${API_BASE}/videos/upload`, formData, {
-    headers: { "Content-Type": "multipart/form-data" }
+    headers: { "Content-Type": "multipart/form-data" },
   });
-  return res.data;
-};
-
-export const getTaskStatus = async (taskId) => {
-  const res = await axios.get(`${API_BASE}/tasks/${taskId}`);
-  return res.data;
-};
-
-export const getVideos = async () => {
-  const res = await axios.get(`${API_BASE}/videos`);
   return res.data;
 };
 
@@ -33,9 +23,12 @@ export const getVideoFragments = async (videoId) => {
   return res.data;
 };
 
-export const searchFragments = async (videoId, query, exact) => {
-  const res = await axios.get(`${API_BASE}/videos/${videoId}/fragments/search`, {
-    params: { query, exact }
-  });
+export const getVideos = async () => {
+  const res = await axios.get(`${API_BASE}/videos`);
+  return res.data;
+};
+
+export const getTaskStatus = async (taskId) => {
+  const res = await axios.get(`${API_BASE}/tasks/${taskId}`);
   return res.data;
 };

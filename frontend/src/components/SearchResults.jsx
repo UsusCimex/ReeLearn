@@ -9,7 +9,7 @@ const SearchResults = ({ results, highlightWords, exactSearch }) => {
   }
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ p: 3 }}>
       {results.map((res) => (
         <Card key={res.video.video_id} sx={{ mb: 4 }}>
           <CardContent>
@@ -35,7 +35,7 @@ const SearchResults = ({ results, highlightWords, exactSearch }) => {
                     exactSearch={exactSearch}
                   />
                   <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                    Time: {frag.timecode_start} - {frag.timecode_end} | Score: {frag.score}
+                    {`Time: ${frag.timecode_start} - ${frag.timecode_end} | Score: ${frag.score}`}
                   </Typography>
                 </Grid>
               ))}
