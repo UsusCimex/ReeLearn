@@ -6,26 +6,53 @@ from core.logger import logger
 from core.exceptions import DatabaseError, ElasticsearchException
 
 def search_in_elasticsearch(query, exact=False, tags=None, min_score=1.0):
-    es = get_elasticsearch()
-    must = []
+    index_name = settings.ELASTICSEARCH_INDEX_NAME
+    must_queries = []
     if query:
         if exact:
-            must.append({"match_phrase": {"text": {"query": query, "slop": 0}}})
+            must_queries.append({
+                "match_phrase": {
+                    "text": {
+                        "query": query,
+                        "slop": 0
+                    }
+                }
+            })
         else:
-            must.append({"multi_match": {"query": query, "fields": ["text", "text.keyword"], "operator": "or", "fuzziness": "AUTO"}})
-            must.append({"match_phrase": {"text": {"query": query, "slop": 2, "boost": 2.0}}})
+            must_queries.append({
+                "multi_match": {
+                    "query": query,
+                    "fields": ["text.phonetic^2", "text"],
+                    "type": "best_fields",
+                    "operator": "or",
+                    "fuzziness": "AUTO"
+                }
+            })
     if tags:
-        must.append({"terms": {"tags": tags}})
-    body = {"query": {"bool": {"should": must, "minimum_should_match": 1}}, "min_score": min_score, "size": 100}
+        must_queries.append({
+            "terms": {"tags": tags}
+        })
+    search_body = {
+        "query": {
+            "bool": {
+                "should": must_queries,
+                "minimum_should_match": 1
+            }
+        },
+        "min_score": min_score,
+        "size": 100
+    }
     try:
-        res = es.search(index=settings.ELASTICSEARCH_INDEX_NAME, body=body)
+        res = get_elasticsearch().search(index=index_name, body=search_body)
         return res["hits"]["hits"]
     except Exception as e:
-        logger.error(f"Search error: {e}")
-        raise ElasticsearchException(str(e))
+        logger.error(f"Error in search_in_elasticsearch: {e}", exc_info=True)
+        raise e
+
 def get_fragments_with_videos(db, fragment_ids):
     fragments = db.execute(select(Fragment).where(Fragment.id.in_(fragment_ids))).scalars().all()
     return fragments
+
 def assemble_search_results(hits, fragments, results_per_video=2):
     frag_dict = {str(f.id): f for f in fragments}
     videos = {}

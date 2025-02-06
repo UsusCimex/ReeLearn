@@ -2,19 +2,79 @@ from elasticsearch import Elasticsearch, helpers
 from core.config import settings
 from core.logger import logger
 
+index_name = settings.ELASTICSEARCH_INDEX_NAME
+
 def get_elasticsearch():
-    return Elasticsearch([{"host": settings.ELASTICSEARCH_HOST, "port": settings.ELASTICSEARCH_PORT, "scheme": "http"}])
+    return Elasticsearch([{
+        'host': settings.ELASTICSEARCH_HOST,
+        'port': settings.ELASTICSEARCH_PORT,
+        'scheme': 'http'
+    }])
 
 def create_index(delete_if_exist=True):
     es = get_elasticsearch()
-    if es.indices.exists(index=settings.ELASTICSEARCH_INDEX_NAME):
-        if delete_if_exist:
-            es.indices.delete(index=settings.ELASTICSEARCH_INDEX_NAME)
-    mapping = {
-        "settings": {"analysis": {"analyzer": {"standard_analyzer": {"type": "custom", "tokenizer": "standard", "filter": ["lowercase", "stop"]}}}},
-        "mappings": {"properties": {"fragment_id": {"type": "long"}, "video_id": {"type": "long"}, "text": {"type": "text", "analyzer": "standard_analyzer", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}}, "timecode_start": {"type": "float"}, "timecode_end": {"type": "float"}, "tags": {"type": "keyword"}, "s3_url": {"type": "keyword"}, "speech_confidence": {"type": "float"}, "no_speech_prob": {"type": "float"}, "language": {"type": "keyword"}}}
-    }
-    es.indices.create(index=settings.ELASTICSEARCH_INDEX_NAME, body=mapping)
+    try:
+        if es.indices.exists(index=index_name):
+            if delete_if_exist:
+                logger.info(f"Deleting existing index {index_name}")
+                es.indices.delete(index=index_name)
+            else:
+                logger.info(f"Index {index_name} already exists.")
+                return
+
+        mapping = {
+            "settings": {
+                "analysis": {
+                    "filter": {
+                        "my_phonetic": {
+                            "type": "phonetic",
+                            "encoder": "metaphone",
+                            "replace": False
+                        }
+                    },
+                    "analyzer": {
+                        "phonetic_analyzer": {
+                            "tokenizer": "standard",
+                            "filter": ["lowercase", "my_phonetic"]
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "properties": {
+                    "fragment_id": {"type": "long"},
+                    "video_id": {"type": "long"},
+                    "text": {
+                        "type": "text",
+                        "analyzer": "standard",
+                        "fields": {
+                            "phonetic": {
+                                "type": "text",
+                                "analyzer": "phonetic_analyzer",
+                                "search_analyzer": "standard"
+                            },
+                            "keyword": {
+                                "type": "keyword",
+                                "ignore_above": 256
+                            }
+                        }
+                    },
+                    "timecode_start": {"type": "float"},
+                    "timecode_end": {"type": "float"},
+                    "tags": {"type": "keyword"},
+                    "s3_url": {"type": "keyword"},
+                    "speech_confidence": {"type": "float"},
+                    "no_speech_prob": {"type": "float"},
+                    "language": {"type": "keyword"}
+                }
+            }
+        }
+        
+        es.indices.create(index=index_name, body=mapping)
+        logger.info(f"Index {index_name} created successfully.")
+    except Exception as e:
+        logger.error(f"Error creating index: {e}")
+        raise e
 
 def convert_fragment(frag):
     return {
