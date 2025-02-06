@@ -1,10 +1,13 @@
 import React from "react";
 import { Grid, Typography } from "@mui/material";
 import VideoCard from "./VideoCard";
+import { useTranslation } from "../hooks/useTranslation";
 
 const VideoList = ({ videos }) => {
+  const { t } = useTranslation();
+
   if (!videos || videos.length === 0) {
-    return <Typography>No videos available.</Typography>;
+    return <Typography>{t("noVideoAvail")}</Typography>;
   }
   return (
     <Grid container spacing={2}>

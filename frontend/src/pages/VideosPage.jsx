@@ -4,11 +4,14 @@ import VideoList from "../components/VideoList";
 import LoadingSpinner from "../components/LoadingSpinner";
 import AlertMessage from "../components/AlertMessage";
 import { getVideos } from "../services/api";
+import { useTranslation } from "../hooks/useTranslation";
 
 const VideosPage = () => {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const { t } = useTranslation();
   
   useEffect(() => {
     const fetchVideos = async () => {
@@ -29,7 +32,7 @@ const VideosPage = () => {
   
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 2 }}>Uploaded Videos</Typography>
+      <Typography variant="h4" sx={{ mb: 2 }}>{t("uploadedVideos")}</Typography>
       {loading ? <LoadingSpinner /> : <VideoList videos={videos} />}
       <AlertMessage open={!!error} onClose={() => setError("")} severity="error" message={error} />
     </Box>

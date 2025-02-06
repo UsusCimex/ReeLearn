@@ -2,10 +2,13 @@ import React from "react";
 import { Box, Typography, Card, CardContent, Grid } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import VideoPlayer from "../components/VideoPlayer";
+import { useTranslation } from "../hooks/useTranslation";
 
 const SearchResults = ({ results, highlightWords, exactSearch }) => {
+  const { t } = useTranslation();
+
   if (!results || results.length === 0) {
-    return <Typography>No results found.</Typography>;
+    return <Typography>{t("resultNotFound")}</Typography>;
   }
 
   return (
