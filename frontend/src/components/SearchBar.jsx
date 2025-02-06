@@ -1,3 +1,4 @@
+// src/components/SearchBar.jsx
 import React from "react";
 import {
   Box,
@@ -10,7 +11,14 @@ import {
 } from "@mui/material";
 import { useTranslation } from "../hooks/useTranslation";
 
-const SearchBar = ({ value, onChange, onSearch, exact, onExactChange }) => {
+const SearchBar = ({
+  value,
+  onChange,
+  onSearch,
+  exact,
+  onExactChange,
+  inputRef // новый проп для рефа текстового поля
+}) => {
   const { t } = useTranslation();
 
   const handleKeyDown = (e) => {
@@ -29,11 +37,10 @@ const SearchBar = ({ value, onChange, onSearch, exact, onExactChange }) => {
         onChange={onChange}
         onKeyDown={handleKeyDown}
         fullWidth
+        inputRef={inputRef}  // прикрепляем реф
       />
       <FormControl component="fieldset">
-        <FormLabel component="legend">
-          {t("mode") || "Search Mode"}
-        </FormLabel>
+        <FormLabel component="legend">{t("mode") || "Search Mode"}</FormLabel>
         <RadioGroup row value={exact} onChange={onExactChange}>
           <FormControlLabel value="true" control={<Radio />} label={t("exact")} />
           <FormControlLabel value="false" control={<Radio />} label={t("fuzzy")} />

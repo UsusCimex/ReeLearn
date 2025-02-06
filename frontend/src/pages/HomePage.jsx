@@ -1,5 +1,5 @@
 // src/pages/HomePage.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box,
   Grid,
@@ -25,19 +25,48 @@ const HomePage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [queryHistory, setQueryHistory] = useState([]);
+  const [submittedQuery, setSubmittedQuery] = useState(""); // новое состояние для зафиксированного запроса
   const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  // Для горизонтальной прокрутки истории запросов
+  // Рефы для истории, результатов и поля поиска
   const historyRef = useRef(null);
+  const resultsRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const heroRef = useRef(null);
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem("queryHistory") || "[]");
     setQueryHistory(saved);
   }, []);
 
-  const handleSearch = async (query, exact) => {
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if ((e.ctrlKey && e.key === "f") || (e.ctrlKey && e.key === "l")) {
+        e.preventDefault();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
+
+  const scrollHistory = (direction) => {
+    if (historyRef.current) {
+      const scrollAmount = 150;
+      historyRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth"
+      });
+    }
+  };
+
+  // Функция поиска; при отправке устанавливаем submittedQuery
+  const handleSearch = useCallback(async (query, exact) => {
     setLoading(true);
     setError("");
     try {
@@ -56,28 +85,41 @@ const HomePage = () => {
       setResults([]);
     } finally {
       setLoading(false);
+      // Сохраняем отправленный запрос для прокрутки
+      if (query.trim()) {
+        setSubmittedQuery(query);
+      }
+    }
+  }, []);
+
+  // Эффект прокрутки: срабатывает только если submittedQuery установлен, загрузка завершена и есть результаты
+  useEffect(() => {
+    if (!loading && submittedQuery && results.length > 0) {
+      // Прокрутка на 95% высоты окна
+      const scrollTarget = window.innerHeight * 0.85;
+      window.scrollTo({ top: scrollTarget, behavior: "smooth" });
+      setSubmittedQuery(""); // сбрасываем после прокрутки
+    }
+  }, [loading, results, submittedQuery]);
+
+  // При выборе элемента истории сразу вызываем поиск и фокусируем поле
+  const handleSelectHistory = (query) => {
+    setSearchQuery(query);
+    handleSearch(query, exactSearch === "true");
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+      searchInputRef.current.select();
     }
   };
 
   const handleQueryChange = (e) => setSearchQuery(e.target.value);
   const handleExactChange = (e) => setExactSearch(e.target.value);
-  const handleSelectHistory = (query) => setSearchQuery(query);
-
-  // Прокрутка горизонтальной истории запросов
-  const scrollHistory = (direction) => {
-    if (historyRef.current) {
-      const scrollAmount = 150;
-      historyRef.current.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth"
-      });
-    }
-  };
 
   return (
     <Box>
       {/* Hero section с тёмным фоном */}
       <Box
+        ref={heroRef}
         sx={{
           position: "relative",
           height: { xs: "65vh", md: "75vh" },
@@ -90,7 +132,6 @@ const HomePage = () => {
           justifyContent: "center"
         }}
       >
-        {/* Светлый блок для приветственного текста и поисковой строки */}
         <Box
           sx={{
             position: "relative",
@@ -101,7 +142,7 @@ const HomePage = () => {
             bgcolor: "rgba(255, 255, 255, 0.95)",
             boxShadow: 3,
             textAlign: "center",
-            color: "#000" // Черный текст
+            color: "#000"
           }}
         >
           <Typography variant="h4" gutterBottom sx={{ fontWeight: "bold" }}>
@@ -119,11 +160,12 @@ const HomePage = () => {
             onSearch={handleSearch}
             exact={exactSearch}
             onExactChange={handleExactChange}
+            inputRef={searchInputRef}
           />
         </Box>
       </Box>
 
-      {/* Горизонтальная история запросов */}
+      {/* История запросов */}
       {queryHistory && queryHistory.length > 0 && (
         <Box
           sx={{
@@ -176,7 +218,7 @@ const HomePage = () => {
       )}
 
       {/* Результаты поиска */}
-      <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <Box ref={resultsRef} sx={{ p: { xs: 2, md: 4 } }}>
         {loading ? (
           <LoadingSpinner />
         ) : (
