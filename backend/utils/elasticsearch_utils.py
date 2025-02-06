@@ -24,18 +24,25 @@ def create_index(delete_if_exist=True):
 
         mapping = {
             "settings": {
+                "index.max_ngram_diff": 18,
                 "analysis": {
-                    "filter": {
-                        "my_phonetic": {
-                            "type": "phonetic",
-                            "encoder": "metaphone",
-                            "replace": False
+                    "tokenizer": {
+                        "ngram_tokenizer": {
+                            "type": "ngram",
+                            "min_gram": 2,
+                            "max_gram": 20,
+                            "token_chars": ["letter", "digit"]
                         }
                     },
                     "analyzer": {
-                        "phonetic_analyzer": {
-                            "tokenizer": "standard",
-                            "filter": ["lowercase", "my_phonetic"]
+                        "ngram_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "ngram_tokenizer",
+                            "filter": ["lowercase"]
+                        },
+                        "whitespace_lowercase": {
+                            "tokenizer": "whitespace",
+                            "filter": ["lowercase"]
                         }
                     }
                 }
@@ -46,17 +53,10 @@ def create_index(delete_if_exist=True):
                     "video_id": {"type": "long"},
                     "text": {
                         "type": "text",
-                        "analyzer": "standard",
+                        "analyzer": "ngram_analyzer",
+                        "search_analyzer": "whitespace_lowercase",
                         "fields": {
-                            "phonetic": {
-                                "type": "text",
-                                "analyzer": "phonetic_analyzer",
-                                "search_analyzer": "standard"
-                            },
-                            "keyword": {
-                                "type": "keyword",
-                                "ignore_above": 256
-                            }
+                            "keyword": {"type": "keyword", "ignore_above": 256}
                         }
                     },
                     "timecode_start": {"type": "float"},
