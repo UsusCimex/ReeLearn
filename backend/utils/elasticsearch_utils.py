@@ -11,7 +11,7 @@ def get_elasticsearch():
         'scheme': 'http'
     }])
 
-def create_index(delete_if_exist=True):
+def create_reelearn_index(delete_if_exist=True):
     es = get_elasticsearch()
     try:
         if es.indices.exists(index=index_name):
@@ -24,7 +24,7 @@ def create_index(delete_if_exist=True):
 
         mapping = {
             "settings": {
-                "index.max_ngram_diff": 18,
+                "index.max_ngram_diff": 18,  # Разрешаем разницу 18 (20-2)
                 "analysis": {
                     "tokenizer": {
                         "ngram_tokenizer": {
@@ -34,7 +34,40 @@ def create_index(delete_if_exist=True):
                             "token_chars": ["letter", "digit"]
                         }
                     },
+                    "filter": {
+                        "english_stop": {
+                            "type": "stop",
+                            "stopwords": "_english_"
+                        },
+                        "english_stemmer": {
+                            "type": "stemmer",
+                            "language": "english"
+                        },
+                        "russian_stop": {
+                            "type": "stop",
+                            "stopwords": "_russian_"
+                        },
+                        "russian_stemmer": {
+                            "type": "stemmer",
+                            "language": "russian"
+                        },
+                        "my_phonetic": {
+                            "type": "phonetic",
+                            "encoder": "metaphone",
+                            "replace": False
+                        }
+                    },
                     "analyzer": {
+                        "en_fuzzy": {
+                            "type": "custom",
+                            "tokenizer": "standard",
+                            "filter": ["lowercase", "english_stop", "english_stemmer", "my_phonetic"]
+                        },
+                        "ru_fuzzy": {
+                            "type": "custom",
+                            "tokenizer": "standard",
+                            "filter": ["lowercase", "russian_stop", "russian_stemmer", "my_phonetic"]
+                        },
                         "ngram_analyzer": {
                             "type": "custom",
                             "tokenizer": "ngram_tokenizer",
@@ -53,19 +86,33 @@ def create_index(delete_if_exist=True):
                     "video_id": {"type": "long"},
                     "text": {
                         "type": "text",
-                        "analyzer": "ngram_analyzer",
-                        "search_analyzer": "whitespace_lowercase",
+                        "analyzer": "standard",  # Основное поле индексируется стандартно
                         "fields": {
+                            "en_fuzzy": {
+                                "type": "text",
+                                "analyzer": "en_fuzzy",
+                                "search_analyzer": "standard"
+                            },
+                            "ru_fuzzy": {
+                                "type": "text",
+                                "analyzer": "ru_fuzzy",
+                                "search_analyzer": "standard"
+                            },
+                            "ngram": {
+                                "type": "text",
+                                "analyzer": "ngram_analyzer",
+                                "search_analyzer": "whitespace_lowercase"
+                            },
                             "keyword": {"type": "keyword", "ignore_above": 256}
                         }
                     },
+                    "language": {"type": "keyword"},
                     "timecode_start": {"type": "float"},
                     "timecode_end": {"type": "float"},
                     "tags": {"type": "keyword"},
                     "s3_url": {"type": "keyword"},
                     "speech_confidence": {"type": "float"},
-                    "no_speech_prob": {"type": "float"},
-                    "language": {"type": "keyword"}
+                    "no_speech_prob": {"type": "float"}
                 }
             }
         }
@@ -78,7 +125,7 @@ def create_index(delete_if_exist=True):
 
 def convert_fragment(frag):
     return {
-        "_index": settings.ELASTICSEARCH_INDEX_NAME,
+        "_index": index_name,
         "_id": str(frag.id),
         "_source": {
             "fragment_id": frag.id,
@@ -97,15 +144,15 @@ def convert_fragment(frag):
 def add_new_fragment(frag):
     es = get_elasticsearch()
     doc = convert_fragment(frag)
-    es.index(index=settings.ELASTICSEARCH_INDEX_NAME, id=doc["_id"], body=doc["_source"])
+    es.index(index=index_name, id=doc["_id"], body=doc["_source"])
 
 def delete_fragment_by_id(fragment_id):
     es = get_elasticsearch()
-    es.delete(index=settings.ELASTICSEARCH_INDEX_NAME, id=str(fragment_id), ignore=[404])
+    es.delete(index=index_name, id=str(fragment_id), ignore=[404])
 
 def replace_all_fragments(fragments):
     if not fragments:
         return
-    create_index(delete_if_exist=True)
+    create_reelearn_index(delete_if_exist=True)
     actions = [convert_fragment(frag) for frag in fragments]
     helpers.bulk(get_elasticsearch(), actions)

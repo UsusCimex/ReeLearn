@@ -9,7 +9,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from core.config import settings
 from api.router import router as api_router
-from utils.elasticsearch_utils import create_index, replace_all_fragments
+from utils.elasticsearch_utils import create_reelearn_index, replace_all_fragments
 from utils.s3_utils import ensure_bucket_exists, get_s3_client
 from db.base import engine, Base, SessionLocal
 from db.models.fragment import Fragment
@@ -68,7 +68,7 @@ def startup_event():
     Base.metadata.create_all(engine)
     db.close()
     ensure_bucket_exists()
-    create_index()
+    create_reelearn_index()
     db = SessionLocal()
     fragments = db.query(Fragment).all()
     if fragments:
