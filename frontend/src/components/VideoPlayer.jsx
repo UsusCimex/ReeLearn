@@ -2,21 +2,21 @@ import React, { useRef, useEffect, useState } from "react";
 import { Box, Typography, IconButton } from "@mui/material";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import Highlighter from "react-highlight-words";
+import { motion } from "framer-motion";
 
 const VideoPlayer = ({
   videoUrl,
   fragments = [],
   searchWords = [],
   exactSearch = false,
-  staticSubtitle,
+  staticSubtitle
 }) => {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
-  const overlayRef = useRef(null);
   const [currentSubtitle, setCurrentSubtitle] = useState(staticSubtitle || "");
 
+  // Если используется динамический режим – обновляем субтитры в зависимости от текущего времени видео
   useEffect(() => {
-    // Если staticSubtitle передан, используем его (режим для фрагментов)
     if (staticSubtitle !== undefined) {
       setCurrentSubtitle(staticSubtitle);
       return;
@@ -37,34 +37,6 @@ const VideoPlayer = ({
     return () => video.removeEventListener("timeupdate", handleTimeUpdate);
   }, [fragments, staticSubtitle]);
 
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isFullscreen =
-        document.fullscreenElement === containerRef.current ||
-        document.webkitFullscreenElement === containerRef.current ||
-        document.mozFullScreenElement === containerRef.current ||
-        document.msFullscreenElement === containerRef.current;
-      if (overlayRef.current) {
-        overlayRef.current.style.position = isFullscreen ? "fixed" : "absolute";
-        overlayRef.current.style.bottom = "10px";
-        overlayRef.current.style.left = "0";
-        overlayRef.current.style.right = "0";
-        overlayRef.current.style.zIndex = isFullscreen ? "9999" : "10";
-      }
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
-    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
-      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
-    };
-  }, []);
-
   const handleFullscreen = () => {
     if (containerRef.current.requestFullscreen) {
       containerRef.current.requestFullscreen();
@@ -83,7 +55,7 @@ const VideoPlayer = ({
       sx={{
         position: "relative",
         width: "100%",
-        backgroundColor: "black",
+        backgroundColor: "black"
       }}
     >
       {videoUrl ? (
@@ -104,40 +76,45 @@ const VideoPlayer = ({
           position: "absolute",
           top: 10,
           right: 10,
-          zIndex: 20,
+          zIndex: 20
         }}
       >
         <IconButton onClick={handleFullscreen} sx={{ color: "#fff" }}>
           <FullscreenIcon />
         </IconButton>
       </Box>
-      <Box
-        ref={overlayRef}
-        sx={{
-          position: "absolute",
-          bottom: "10px",
-          left: 0,
-          right: 0,
-          textAlign: "center",
-          backgroundColor: "rgba(0, 0, 0, 0.6)",
-          color: "#fff",
-          py: 1,
-          px: 2,
-          borderRadius: "4px",
-          pointerEvents: "none",
-        }}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
       >
-        {exactSearch && searchWords.length > 0 ? (
-          <Highlighter
-            searchWords={searchWords}
-            autoEscape={true}
-            textToHighlight={currentSubtitle}
-            highlightStyle={{ backgroundColor: "#ffeb3b", color: "black" }}
-          />
-        ) : (
-          <Typography variant="body1">{currentSubtitle}</Typography>
-        )}
-      </Box>
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: "10px",
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            color: "#fff",
+            py: 1,
+            px: 2,
+            borderRadius: "4px",
+            pointerEvents: "none"
+          }}
+        >
+          {exactSearch && searchWords.length > 0 ? (
+            <Highlighter
+              searchWords={searchWords}
+              autoEscape={true}
+              textToHighlight={currentSubtitle}
+              highlightStyle={{ backgroundColor: "#ffeb3b", color: "black" }}
+            />
+          ) : (
+            <Typography variant="body1">{currentSubtitle}</Typography>
+          )}
+        </Box>
+      </motion.div>
     </Box>
   );
 };

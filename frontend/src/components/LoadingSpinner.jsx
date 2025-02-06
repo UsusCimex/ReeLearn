@@ -1,9 +1,17 @@
 import React from "react";
-import { CircularProgress, Box } from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
 
 const LoadingSpinner = () => (
-  <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 150 }}>
-    <CircularProgress />
+  <Box
+    sx={{
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minHeight: 150,
+      py: 4
+    }}
+  >
+    <CircularProgress size={50} />
   </Box>
 );
 

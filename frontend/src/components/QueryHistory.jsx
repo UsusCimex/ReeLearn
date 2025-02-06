@@ -1,11 +1,16 @@
-// src/components/QueryHistory.jsx
 import React from "react";
-import { List, ListItem, ListItemButton, ListItemText, Paper, Typography } from "@mui/material";
+import {
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Paper,
+  Typography
+} from "@mui/material";
 import { useTranslation } from "../hooks/useTranslation";
 
 const QueryHistory = ({ history, onSelect }) => {
   const { t } = useTranslation();
-
   if (!history || history.length === 0) return null;
 
   return (

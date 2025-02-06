@@ -1,11 +1,10 @@
-// src/pages/VideoDetailPage.jsx
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Typography, Box, TextField, Grid } from "@mui/material";
+import { Box, Typography, TextField, Grid, Paper } from "@mui/material";
 import VideoPlayer from "../components/VideoPlayer";
 import LoadingSpinner from "../components/LoadingSpinner";
 import AlertMessage from "../components/AlertMessage";
-import { getVideoFragments } from "../services/api";
+import { getVideoFragments } from "../services/api"; // API‑функция для получения деталей видео
 import { useTranslation } from "../hooks/useTranslation";
 
 const VideoDetailPage = () => {
@@ -50,24 +49,26 @@ const VideoDetailPage = () => {
   }, [searchQuery, allFragments]);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 2 }}>
-        {t("videoDetail")}
-      </Typography>
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
       {loading ? (
         <LoadingSpinner />
       ) : (
         <>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            {t("fullVideo")}
-          </Typography>
-          <VideoPlayer
-            videoUrl={videoUrl}
-            fragments={allFragments}
-            searchWords={[]}
-            exactSearch={false}
-          />
-          <Box sx={{ mt: 4 }}>
+          <Paper sx={{ p: 3, mb: 4 }}>
+            <Typography variant="h4" sx={{ mb: 2 }}>
+              {t("videoDetail")}
+            </Typography>
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              {t("fullVideo")}
+            </Typography>
+            <VideoPlayer
+              videoUrl={videoUrl}
+              fragments={allFragments}
+              searchWords={[]}
+              exactSearch={false}
+            />
+          </Paper>
+          <Paper sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 1 }}>
               {t("videoFragments")}
             </Typography>
@@ -83,7 +84,7 @@ const VideoDetailPage = () => {
                 <Grid item xs={12} sm={6} md={4} key={frag.fragment_id}>
                   <VideoPlayer
                     videoUrl={frag.s3_url}
-                    fragments={[]} // для фрагмента используем static режим
+                    fragments={[]} // Статичный режим для фрагмента
                     staticSubtitle={frag.text}
                     searchWords={searchQuery.split(" ").filter((w) => w.trim() !== "")}
                     exactSearch={true}
@@ -94,7 +95,7 @@ const VideoDetailPage = () => {
                 </Grid>
               ))}
             </Grid>
-          </Box>
+          </Paper>
         </>
       )}
       <AlertMessage

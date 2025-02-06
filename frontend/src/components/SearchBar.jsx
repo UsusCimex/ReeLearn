@@ -1,6 +1,13 @@
-// src/components/SearchBar.jsx
 import React from "react";
-import { Box, TextField, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio } from "@mui/material";
+import {
+  Box,
+  TextField,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio
+} from "@mui/material";
 import { useTranslation } from "../hooks/useTranslation";
 
 const SearchBar = ({ value, onChange, onSearch, exact, onExactChange }) => {
@@ -24,7 +31,9 @@ const SearchBar = ({ value, onChange, onSearch, exact, onExactChange }) => {
         fullWidth
       />
       <FormControl component="fieldset">
-        <FormLabel component="legend">{t("mode") || "Search Mode"}</FormLabel>
+        <FormLabel component="legend">
+          {t("mode") || "Search Mode"}
+        </FormLabel>
         <RadioGroup row value={exact} onChange={onExactChange}>
           <FormControlLabel value="true" control={<Radio />} label={t("exact")} />
           <FormControlLabel value="false" control={<Radio />} label={t("fuzzy")} />

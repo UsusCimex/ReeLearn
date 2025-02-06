@@ -5,5 +5,5 @@ import { translations } from "../i18n";
 export const useTranslation = () => {
   const { language } = useContext(LanguageContext);
   const t = (key) => translations[language][key] || key;
-  return { t, language };
+  return { t };
 };

@@ -1,5 +1,15 @@
 import React, { useContext } from "react";
-import { AppBar, Toolbar, Typography, Button, Box, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Box,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
+} from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import { LanguageContext } from "../LanguageContext";
 import { useTranslation } from "../hooks/useTranslation";
@@ -13,12 +23,21 @@ const Navigation = () => {
   };
 
   return (
-    <AppBar position="static" elevation={4}>
-      <Toolbar>
-        <Typography variant="h6" component={RouterLink} to="/" sx={{ flexGrow: 1, textDecoration: "none", color: "inherit" }}>
+    <AppBar position="sticky" elevation={4}>
+      <Toolbar sx={{ justifyContent: "space-between" }}>
+        <Typography
+          variant="h5"
+          component={RouterLink}
+          to="/"
+          sx={{
+            textDecoration: "none",
+            color: "inherit",
+            fontWeight: "bold"
+          }}
+        >
           ReeLearn
         </Typography>
-        <Box sx={{ mr: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Button color="inherit" component={RouterLink} to="/">
             {t("home")}
           </Button>
@@ -28,24 +47,24 @@ const Navigation = () => {
           <Button color="inherit" component={RouterLink} to="/videos">
             {t("videos")}
           </Button>
+          <FormControl variant="standard" sx={{ minWidth: 80, color: "#fff" }}>
+            <InputLabel sx={{ color: "#fff" }}>{t("language")}</InputLabel>
+            <Select
+              value={language}
+              onChange={handleChange}
+              label={t("language")}
+              sx={{
+                color: "#fff",
+                ".MuiSvgIcon-root": { color: "#fff" },
+                "&:before": { borderColor: "#fff" },
+                "&:after": { borderColor: "#fff" }
+              }}
+            >
+              <MenuItem value="en">EN</MenuItem>
+              <MenuItem value="ru">RU</MenuItem>
+            </Select>
+          </FormControl>
         </Box>
-        <FormControl variant="standard" sx={{ color: "#fff", minWidth: 80 }}>
-          <InputLabel sx={{ color: "#fff" }}>{t("language")}</InputLabel>
-          <Select
-            value={language}
-            onChange={handleChange}
-            label={t("language")}
-            sx={{
-              color: "#fff",
-              ".MuiSvgIcon-root": { color: "#fff" },
-              "&:before": { borderColor: "#fff" },
-              "&:after": { borderColor: "#fff" },
-            }}
-          >
-            <MenuItem value="en">EN</MenuItem>
-            <MenuItem value="ru">RU</MenuItem>
-          </Select>
-        </FormControl>
       </Toolbar>
     </AppBar>
   );
