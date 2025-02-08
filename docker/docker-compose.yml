@@ -69,9 +69,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h db -U ${POSTGRES_USER}"]
-      interval: 10s
+      interval: 12s
       timeout: 5s
       retries: 5
+      start_period: 5s
 
   redis:
     image: redis:6
@@ -109,7 +110,7 @@ services:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9200/_cat/health || exit 1"]
-      interval: 10s
+      interval: 12s
       timeout: 5s
       retries: 5
       start_period: 5s
