@@ -10,7 +10,7 @@ from whisper import load_model
 from typing import Optional
 
 class VideoProcessor:
-    def __init__(self, model_name: str = "base"):
+    def __init__(self, model_name: str = "turbo"):
         self.model = load_model(model_name)
     def optimize_fragments(self, fragments, target_duration: float = settings.VIDEO_OPTIMAL_DURATION, max_duration: float = settings.VIDEO_MAX_FRAGMENT_DURATION):
         if not fragments:
