@@ -8,6 +8,7 @@ from core.config import settings
 from core.logger import logger
 from whisper import load_model
 from typing import Optional
+import torch
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using {device} for processing")
