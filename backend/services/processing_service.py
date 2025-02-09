@@ -11,7 +11,7 @@ from typing import Optional
 import torch
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print("Using {device} for processing")
+print(f"Using {device} for processing")
 
 class VideoProcessor:
     def __init__(self, model_name: str = "turbo"):
