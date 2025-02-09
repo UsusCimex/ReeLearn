@@ -9,9 +9,12 @@ from core.logger import logger
 from whisper import load_model
 from typing import Optional
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print("Using {device} for processing")
+
 class VideoProcessor:
     def __init__(self, model_name: str = "turbo"):
-        self.model = load_model(model_name)
+        self.model = load_model(model_name, device=device)
     def optimize_fragments(self, fragments, target_duration: float = settings.VIDEO_OPTIMAL_DURATION, max_duration: float = settings.VIDEO_MAX_FRAGMENT_DURATION):
         if not fragments:
             return []
