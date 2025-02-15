@@ -52,7 +52,7 @@ def process_video_task(self, video_id: int, temp_file_path: str, original_filena
         temp_dir = os.path.dirname(temp_file_path)
         video_processor = VideoProcessor()
         for idx, frag in enumerate(fragments, start=1):
-            prog = 65 + int((idx / total) * 25)
+            prog = 65 + int((idx / total) * 35)
             self.update_state(state='PROGRESS', meta={'progress': prog, 'current_operation': f'Обработка фрагмента {idx}/{total}'})
             logger.info(
                 f"Фрагмент {idx}: start={frag.start_time}, end={frag.end_time}, "
