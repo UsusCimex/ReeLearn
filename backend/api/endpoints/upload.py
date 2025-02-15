@@ -15,6 +15,7 @@ class VideoUploader:
     def __init__(self, temp_dir: str):
         self.temp_dir = temp_dir
         os.makedirs(temp_dir, exist_ok=True)
+        
     def save_temp_file(self, file: UploadFile) -> (str, str):
         unique_filename = f"{uuid.uuid4()}_{file.filename}"
         temp_path = os.path.join(self.temp_dir, unique_filename)

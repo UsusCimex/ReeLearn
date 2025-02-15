@@ -44,10 +44,10 @@ services:
     environment:
       PYTHONPATH: "/app"
     command: celery -A worker.celery_app worker --loglevel=info -P solo
-    gpus:
-      - driver: nvidia
-        count: all
-        capabilities: [gpu]
+    # gpus:
+    #   - driver: nvidia
+    #     count: all
+    #     capabilities: [gpu]
 
 
   flower:
