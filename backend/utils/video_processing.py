@@ -36,10 +36,10 @@ class SmartVideoFragmenter:
         return settings.VIDEO_DEFAULT_LANGUAGE
 
     def filter_short_fragments(self, fragments: List[VideoFragment]) -> List[VideoFragment]:
-        """Фильтрация фрагментов, длительность которых менее 2 секунд"""
+        """Фильтрация фрагментов, длительность которых менее 1.5 секунд"""
         new_fragments = []
         for i, frag in enumerate(fragments):
-            if frag.end_time - frag.start_time < 2:
+            if frag.end_time - frag.start_time < 1.5:
                 if new_fragments:
                     prev_frag = new_fragments[-1]
                     prev_frag.end_time = frag.end_time

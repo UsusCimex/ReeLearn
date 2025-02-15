@@ -39,8 +39,14 @@ def process_video_task(self, video_id: int, temp_file_path: str, original_filena
 
         logger.info(f"Извлечено фрагментов: {len(fragments)}")
 
-        # Фильтрация коротких фрагментов (< 2 секунд) и объединение
+        # Фильтрация коротких фрагментов (< 1.5 секунд) и объединение
         fragments = fragmenter.filter_short_fragments(fragments)
+
+        # Добавление отступа по 0.1 с до и после каждого фрагмента
+        time_margin = 0.1
+        for frag in fragments:
+            frag.start_time = max(0, frag.start_time - time_margin)
+            frag.end_time += time_margin
 
         total = len(fragments)
         temp_dir = os.path.dirname(temp_file_path)
