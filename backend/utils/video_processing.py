@@ -52,7 +52,7 @@ class SmartVideoFragmenter:
 
 
     def upload_fragment_to_s3(self, fragment: VideoFragment, video_name: str, fragment_id: int) -> str:
-        """Загрузка фрагмента в S3 с ключом /fragments/{video_name}/fragment_{id}.mp4 и возврат URL"""
+        """Загрузка фрагмента в S3 с ключом /fragments/{video_name}/fragment_{fragment_id}.mp4 и возврат URL"""
         
         # Убедитесь, что в фрагменте есть путь к файлу
         if not fragment.s3_url:
@@ -150,7 +150,7 @@ class SmartVideoFragmenter:
 
             all_fragments = []
             for idx, (part, offset) in enumerate(parts):
-                prog = 15 + int((idx + 1) / len(parts) * 50)
+                prog = 10 + int((idx + 1) / len(parts) * 55)
                 task.update_state(state='PROGRESS', meta={'progress': prog, 'current_operation': f'Фрагмент {idx + 1}/{len(parts)}: извлечение субтитров'})
                 logger.info(f"Фрагмент {idx + 1}/{len(parts)}: извлечение субтитров")
                 
@@ -202,13 +202,22 @@ class SmartVideoFragmenter:
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Файл {video_path} не найден!")
         
-        temp_dir = os.path.dirname(video_path)
+        # Используем настраиваемую директорию для временных файлов, если задана в settings
+        temp_dir = getattr(settings, "TEMP_VIDEO_DIR", os.path.dirname(video_path))
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        
+        MIN_FREE_SPACE = 100 * 1024 * 1024  # 100 MB
+        free_space = shutil.disk_usage(temp_dir).free
+        if free_space < MIN_FREE_SPACE:
+            raise RuntimeError(f"Недостаточно свободного места в {temp_dir}: доступно {free_space} байт")
+        
         output_path = os.path.join(temp_dir, f"split_{start_time}_{end_time}.mp4")
         
         command = f"ffmpeg -y -i \"{video_path}\" -ss {start_time} -to {end_time} -c copy \"{output_path}\""
         logger.info(f"Выполняется команда: {command}")
         proc = subprocess.run(command, shell=True, capture_output=True)
-
+        
         if proc.returncode != 0:
             logger.error(f"Ошибка при разбиении видео: {proc.stderr.decode()}")
             raise RuntimeError(f"Ошибка FFmpeg: {proc.stderr.decode()}")
@@ -216,6 +225,6 @@ class SmartVideoFragmenter:
         if not os.path.exists(output_path):
             logger.error(f"Не удалось создать файл: {output_path}")
             raise FileNotFoundError(f"Не удалось создать файл {output_path}")
-
+        
         return output_path
 

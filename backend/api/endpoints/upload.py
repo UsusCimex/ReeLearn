@@ -26,6 +26,7 @@ class VideoUploader:
 
 @router.post("/upload", response_model=UploadResponse)
 def upload_video(video_file: UploadFile = File(...), name: str = Form(...), description: str = Form(None)):
+    temp_path = None  # initialize variable
     uploader = VideoUploader(settings.TEMP_UPLOAD_DIR)
     try:
         temp_path, unique_filename = uploader.save_temp_file(video_file)
@@ -37,6 +38,7 @@ def upload_video(video_file: UploadFile = File(...), name: str = Form(...), desc
         task = process_video_task.delay(video_id=video.id, temp_file_path=temp_path, original_filename=unique_filename)
         return UploadResponse(video_id=str(video.id), status=UploadStatus.uploading, task_id=task.id)
     except Exception as e:
-        if os.path.exists(temp_path):
+        # Ensure temp_path is a valid path before trying to remove it
+        if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
         raise HTTPException(status_code=500, detail=str(e))

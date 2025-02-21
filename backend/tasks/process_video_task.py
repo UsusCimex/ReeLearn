@@ -32,7 +32,7 @@ def process_video_task(self, video_id: int, temp_file_path: str, original_filena
             logger.info(f"Видео с id {video_id} обновлено: s3_url={video.s3_url}")
 
         # Извлечение субтитров
-        self.update_state(state='PROGRESS', meta={'progress': 15, 'current_operation': 'Разбиение видео на фрагменты'})
+        self.update_state(state='PROGRESS', meta={'progress': 10, 'current_operation': 'Разбиение видео на фрагменты'})
         logger.info("Начинается извлечение субтитров")
         fragmenter = SmartVideoFragmenter()
         fragments = fragmenter.process_video(self, temp_file_path)
@@ -52,7 +52,7 @@ def process_video_task(self, video_id: int, temp_file_path: str, original_filena
         temp_dir = os.path.dirname(temp_file_path)
         video_processor = VideoProcessor()
         for idx, frag in enumerate(fragments, start=1):
-            prog = 65 + int((idx / total) * 35)
+            prog = 65 + int((idx / total) * 34)
             self.update_state(state='PROGRESS', meta={'progress': prog, 'current_operation': f'Обработка фрагмента {idx}/{total}'})
             logger.info(
                 f"Фрагмент {idx}: start={frag.start_time}, end={frag.end_time}, "
