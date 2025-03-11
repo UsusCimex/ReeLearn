@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     TEMP_UPLOAD_DIR: str = "/tmp/videos"
+    MAX_UPLOAD_SIZE: int = 15 * 1024 * 1024 * 1024  # 15 ГБ максимальный размер файла
+    UPLOAD_CHUNK_SIZE: int = 5 * 1024 * 1024  # 5 МБ размер чанка для потоковой передачи
+    MIN_FREE_SPACE_PERCENTAGE: float = 20.0  # Минимальный процент свободного места на диске
+    TEMP_FILES_MAX_AGE_HOURS: int = 24  # Максимальное время хранения временных файлов в часах
+    AUTO_CLEANUP_TEMP_FILES: bool = True  # Автоматическая очистка временных файлов
+    CRITICAL_FREE_SPACE_MB: int = 1024  # Критический размер свободного места в MB (1 ГБ)
     
     @property
     def DATABASE_URL(self) -> str:

@@ -6,7 +6,7 @@ services:
     image: backend_image
     volumes:
       - ../backend:/app
-      - /tmp/videos:/tmp/videos
+      - backend_temp_data:/tmp/videos
     ports:
       - "8000:8000"
     depends_on:
@@ -28,7 +28,7 @@ services:
     image: worker_image
     volumes:
       - ../backend:/app
-      - /tmp/videos:/tmp/videos
+      - backend_temp_data:/tmp/videos
       - whisper_cache:/root/.cache/whisper
     depends_on:
       db:
@@ -129,3 +129,9 @@ volumes:
     driver: local
   whisper_cache:
     driver: local
+  backend_temp_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_TEMP_DIR}
